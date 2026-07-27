@@ -10,6 +10,7 @@ import {
   useSessionRegistrants,
   useUpdateSession,
 } from '../../data/calendar'
+import { useProducts } from '../../data/products'
 import type { Session } from '../../types/models'
 
 /** §10 — tap a block: registrant list, mark attendance, edit, cancel
@@ -18,6 +19,7 @@ export function SessionSheet({ session, onClose }: { session: Session | null; on
   const tenant = useTenant()
   const registrants = useSessionRegistrants(session?.id ?? null)
   const instructors = useInstructors()
+  const products = useProducts()
   const update = useUpdateSession()
   const cancel = useCancelSession()
   const mark = useMarkAttendance()
@@ -53,6 +55,19 @@ export function SessionSheet({ session, onClose }: { session: Session | null; on
     ? tenant.classTypes.find((t) => t.id === session.classTypeId)?.labelHe ?? ''
     : ''
 
+  // passes / subscriptions that admit to THIS class type — derived from each
+  // product's allowedClassTypeIds, so editing a product updates this at once
+  const entryProducts = useMemo(
+    () =>
+      (products.data ?? []).filter(
+        (p) =>
+          (p.kind === 'punchCard' || p.kind === 'subscription') &&
+          session != null &&
+          (p.allowedClassTypeIds == null || p.allowedClassTypeIds.includes(session.classTypeId)),
+      ),
+    [products.data, session],
+  )
+
   return (
     <Sheet
       open={session !== null}
@@ -82,6 +97,27 @@ export function SessionSheet({ session, onClose }: { session: Session | null; on
               label={he.calendar.duration}
             />
           </div>
+
+          {/* which passes / subscriptions admit to this class */}
+          <section>
+            <h3 className="mb-2 border-b border-hair pb-1.5 text-sm font-bold text-muted">
+              {he.calendar.entryProducts}
+            </h3>
+            {entryProducts.length === 0 ? (
+              <p className="text-sm text-faint">{he.calendar.entryProductsNone}</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {entryProducts.map((p) => (
+                  <span
+                    key={p.id}
+                    className="rounded-md border border-line bg-page/60 px-2 py-1 text-xs font-semibold"
+                  >
+                    {p.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </section>
 
           {/* registrants + attendance */}
           <section>

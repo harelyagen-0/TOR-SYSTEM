@@ -183,6 +183,11 @@ export const he = {
     punchCount: 'מספר כניסות',
     intervalDays: 'תדירות חיוב (ימים)',
     saved: 'המוצר נשמר',
+    classTypes: 'מקנה כניסה לשיעורים',
+    classTypesAll: 'כל סוגי השיעורים',
+    classTypesSome: '{n} מתוך {total} נבחרו',
+    classTypesHint: 'המוצר יקנה כניסה רק לסוגי השיעורים שנבחרו',
+    classTypesEmpty: 'בחרו לפחות סוג שיעור אחד, או סמנו את כולם',
   },
 
   promo: {
@@ -373,6 +378,8 @@ export const he = {
     allowedProductsSome: '{n} מתוך {total} נבחרו',
     allowedProductsHint: 'שיעור שלא נכלל במנוי — הלקוח משלם כניסה בודדת',
     allowedProductsNone: 'אין מנויים או כרטיסיות',
+    entryProducts: 'מקנים כניסה לשיעור זה',
+    entryProductsNone: 'אין מוצר שמקנה כניסה לשיעור זה',
     instructorsTitle: 'מדריכים',
     instructorsEmpty: 'אין עדיין מדריכים',
     newInstructor: 'מדריך/ה חדש/ה',

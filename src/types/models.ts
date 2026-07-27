@@ -70,6 +70,12 @@ export interface Product {
   punchCount?: number
   /** subscription only; default 30 */
   intervalDays?: number
+  /**
+   * Which tenant classTypes this product grants entry to.
+   * `null` / absent = every class type (the default); a list restricts it —
+   * e.g. a meditation subscription that does not admit to yoga classes.
+   */
+  allowedClassTypeIds?: string[] | null
   active: boolean
   createdAt: Timestamp
 }
