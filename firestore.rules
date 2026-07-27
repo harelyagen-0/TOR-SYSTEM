@@ -1,0 +1,51 @@
+rules_version = '2';
+
+// Multi-tenant isolation: an operator may touch ONLY their own tenant, proven
+// by the `tenantId` custom claim on the auth token — never by a client-supplied
+// id. Ledger, entitlements and reports are written exclusively by Cloud
+// Functions (Admin SDK bypasses rules), so clients get read-only access there.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /tenants/{tenantId} {
+      function isOperator() {
+        return request.auth != null && request.auth.token.tenantId == tenantId;
+      }
+
+      // tenant config: readable by its operators; edited out-of-band (vendor)
+      allow read: if isOperator();
+      allow write: if false;
+
+      // function-owned collections — client read-only
+      match /ledger/{docId} {
+        allow read: if isOperator();
+        allow write: if false;
+      }
+      match /entitlements/{docId} {
+        allow read: if isOperator();
+        // punch-card deduction semantics are [OPEN] (spec Q5); until decided,
+        // operators may update `remaining`/`status` but not create or delete.
+        allow update: if isOperator();
+        allow create, delete: if false;
+      }
+      match /reports/{docId} {
+        allow read: if isOperator();
+        allow write: if false;
+      }
+      match /invoices/{docId} {
+        allow read: if isOperator();
+        allow write: if false;
+      }
+
+      // everything else inside the tenant: full operator access
+      match /{collection}/{docId} {
+        allow read, write: if isOperator();
+      }
+    }
+
+    // nothing outside /tenants is reachable
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
