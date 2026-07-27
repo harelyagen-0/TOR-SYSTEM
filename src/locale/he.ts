@@ -154,7 +154,7 @@ export const he = {
     actAccountantReport: 'דוח רואה חשבון',
 
     // history sheet
-    historyTitle: 'היסטוריית לקוח',
+    historyTitle: 'היסטוריית תשלומים',
     historySearchHint: 'חיפוש לפי שם או טלפון',
     historyEmpty: 'אין תשלומים ללקוח הזה',
     invoice: 'חשבונית',
