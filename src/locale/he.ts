@@ -215,6 +215,9 @@ export const he = {
     productsSome: '{n} מתוך {total} נבחרו',
     productsHint: 'ההנחה תחול רק על המוצרים שנבחרו',
     productsNone: 'אין מוצרים',
+    productsQuick: 'בחירה מהירה',
+    productsInactive: 'לא פעיל',
+    productsEmpty: 'בחרו לפחות מוצר אחד, או סמנו את כל המוצרים',
   },
 
   expenses: {

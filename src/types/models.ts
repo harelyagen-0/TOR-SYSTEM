@@ -158,7 +158,8 @@ export interface PromoCode {
    * Which products the discount applies to.
    * `null` / absent = every product (the default); a list restricts the code
    * to those products only — e.g. a discount valid only on a single entry, or
-   * only on this month's subscription.
+   * only on this month's subscription. An empty list restricts it to nothing
+   * (the code never applies); the sheet refuses to save one.
    */
   productIds?: string[] | null
 }

@@ -65,15 +65,17 @@ export function validatePromo(
   if (!audienceOk) return { ok: false, reason: he.payments.promoAudience }
 
   const total = lines.reduce((s, l) => s + l.price * l.quantity, 0)
-  // a product-restricted code discounts only its eligible lines
-  const restricted = !!(code.productIds && code.productIds.length > 0)
+  // a product-restricted code discounts only its eligible lines. Any array —
+  // including an empty one — is a restriction; only null/absent means "all
+  // products", so a code can never widen itself by losing its product list.
+  const restricted = Array.isArray(code.productIds)
   const eligible = restricted
     ? lines.filter((l) => code.productIds!.includes(l.productId))
     : lines
-  const eligibleSubtotal = eligible.reduce((s, l) => s + l.price * l.quantity, 0)
-  if (restricted && eligibleSubtotal === 0) {
+  if (restricted && eligible.length === 0) {
     return { ok: false, reason: he.payments.promoProduct }
   }
+  const eligibleSubtotal = eligible.reduce((s, l) => s + l.price * l.quantity, 0)
   const discount =
     code.discountKind === 'percent'
       ? Math.round(eligibleSubtotal * (code.value / 100))

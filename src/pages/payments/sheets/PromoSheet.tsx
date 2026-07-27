@@ -5,14 +5,23 @@ import { dateKey, formatMoney, formatShortDate } from '../../../lib/format'
 import { useTenant } from '../../../tenant/TenantProvider'
 import { useCreatePromo, usePromoCodes, useUpdatePromo } from '../../../data/promoCodes'
 import { useProducts } from '../../../data/products'
-import type { PromoCode } from '../../../types/models'
+import type { ProductKind, PromoCode } from '../../../types/models'
+
+/** quick-select buckets — "only single entries", "only subscriptions", … */
+const KIND_CHIPS: Array<{ kind: ProductKind; label: string }> = [
+  { kind: 'single', label: he.products.kindSingle },
+  { kind: 'punchCard', label: he.products.kindPunchCard },
+  { kind: 'subscription', label: he.products.kindSubscription },
+]
 
 /** §8.2.3 — create, edit, or deactivate a discount code: code, name,
  *  description, valid-until, audience, discount value. */
 export function PromoSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const tenant = useTenant()
   const promos = usePromoCodes()
-  const products = useProducts()
+  // include inactive products: a code may still be restricted to one that was
+  // retired, and hiding it here would silently drop it on the next save
+  const products = useProducts(false)
   const create = useCreatePromo()
   const update = useUpdatePromo()
 
@@ -35,12 +44,29 @@ export function PromoSheet({ open, onClose }: { open: boolean; onClose: () => vo
   const busy = create.isPending || update.isPending
 
   const isProductOn = (id: string) => productIds === null || productIds.includes(id)
-  function toggleProduct(id: string) {
+  /** a selection covering every product is stored as null ("all products") */
+  const normalize = (next: string[]): string[] | null => {
     const all = productList.map((p) => p.id)
-    let next = productIds === null ? [...all] : [...productIds]
-    next = next.includes(id) ? next.filter((x) => x !== id) : [...next, id]
-    setProductIds(next.length === all.length && all.every((x) => next.includes(x)) ? null : next)
+    return all.length > 0 && all.every((x) => next.includes(x)) ? null : next
   }
+  function toggleProduct(id: string) {
+    const base = productIds === null ? productList.map((p) => p.id) : [...productIds]
+    const next = base.includes(id) ? base.filter((x) => x !== id) : [...base, id]
+    setProductIds(normalize(next))
+  }
+  /** quick-select: restrict the code to one product kind only */
+  function selectKind(kind: ProductKind) {
+    setProductIds(normalize(productList.filter((p) => p.kind === kind).map((p) => p.id)))
+  }
+  const selectedCount = productIds === null ? productList.length : productIds.length
+  const kindIsExactly = (kind: ProductKind) => {
+    if (productIds === null) return false
+    const ofKind = productList.filter((p) => p.kind === kind).map((p) => p.id)
+    return ofKind.length > 0 && ofKind.length === productIds.length && ofKind.every((x) => productIds.includes(x))
+  }
+  // an empty list would mean "valid on nothing" — block it rather than save a
+  // code that can never be redeemed
+  const productsInvalid = productIds !== null && productIds.length === 0
 
   function resetForm() {
     setEditingId(null)
@@ -65,6 +91,10 @@ export function PromoSheet({ open, onClose }: { open: boolean; onClose: () => vo
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
+    if (productsInvalid) {
+      setProductsOpen(true)
+      return
+    }
     const payload = {
       code,
       name,
@@ -148,12 +178,14 @@ export function PromoSheet({ open, onClose }: { open: boolean; onClose: () => vo
           >
             <span className="flex min-w-0 flex-col">
               <span className="text-sm font-bold">{he.promo.products}</span>
-              <span className="truncate text-xs text-faint">
+              <span className={`truncate text-xs ${productsInvalid ? 'text-crit' : 'text-faint'}`}>
                 {productList.length === 0
                   ? he.promo.productsNone
-                  : productIds === null
-                    ? he.promo.productsAll
-                    : fmt(he.promo.productsSome, { n: productIds.length, total: productList.length })}
+                  : productsInvalid
+                    ? he.promo.productsEmpty
+                    : productIds === null
+                      ? he.promo.productsAll
+                      : fmt(he.promo.productsSome, { n: selectedCount, total: productList.length })}
               </span>
             </span>
             <span aria-hidden="true" className={`shrink-0 text-faint transition-transform ${productsOpen ? 'rotate-180' : ''}`}>▾</span>
@@ -161,6 +193,34 @@ export function PromoSheet({ open, onClose }: { open: boolean; onClose: () => vo
 
           {productsOpen && productList.length > 0 && (
             <div className="mt-2 flex flex-col gap-1 rounded-field border border-line bg-page/60 p-2">
+              {/* quick-select — e.g. "only single entries", "only subscriptions" */}
+              <div className="flex flex-wrap items-center gap-1.5 px-1.5 pb-1">
+                <span className="text-xs text-faint">{he.promo.productsQuick}</span>
+                <button
+                  type="button"
+                  aria-pressed={productIds === null}
+                  onClick={() => setProductIds(null)}
+                  className={`rounded-md border px-2 py-1 text-xs font-bold ${
+                    productIds === null ? 'border-accent/25 bg-accent/10 text-accent' : 'border-line text-muted'
+                  }`}
+                >
+                  {he.promo.productsAll}
+                </button>
+                {KIND_CHIPS.filter(({ kind }) => productList.some((p) => p.kind === kind)).map(({ kind, label }) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    aria-pressed={kindIsExactly(kind)}
+                    onClick={() => selectKind(kind)}
+                    className={`rounded-md border px-2 py-1 text-xs font-bold ${
+                      kindIsExactly(kind) ? 'border-accent/25 bg-accent/10 text-accent' : 'border-line text-muted'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
               {productList.map((p) => (
                 <label key={p.id} className="flex min-h-10 items-center gap-3 rounded-md px-1.5 text-sm">
                   <input
@@ -169,19 +229,24 @@ export function PromoSheet({ open, onClose }: { open: boolean; onClose: () => vo
                     checked={isProductOn(p.id)}
                     onChange={() => toggleProduct(p.id)}
                   />
-                  <span className="min-w-0 flex-1 truncate font-semibold">{p.name}</span>
+                  <span className="min-w-0 flex-1 truncate font-semibold">
+                    {p.name}
+                    {!p.active && <span className="ms-1.5 text-xs font-normal text-faint">({he.promo.productsInactive})</span>}
+                  </span>
                   <span className="shrink-0 text-xs text-faint tnum">
                     <bdi>{formatMoney(p.price, tenant.currency, tenant.locale)}</bdi>
                   </span>
                 </label>
               ))}
-              <p className="px-1.5 pt-1 text-xs text-faint">{he.promo.productsHint}</p>
+              <p className={`px-1.5 pt-1 text-xs ${productsInvalid ? 'font-semibold text-crit' : 'text-faint'}`}>
+                {productsInvalid ? he.promo.productsEmpty : he.promo.productsHint}
+              </p>
             </div>
           )}
         </div>
 
         <div className="flex flex-col gap-2">
-          <Button type="submit" disabled={busy}>
+          <Button type="submit" disabled={busy || productsInvalid}>
             {editingId ? he.promo.saveChanges : he.common.save}
           </Button>
           {editingPromo && (
@@ -222,6 +287,8 @@ export function PromoSheet({ open, onClose }: { open: boolean; onClose: () => vo
                     {p.discountKind === 'percent' ? `${p.value}%` : `₪${p.value}`}
                     {p.validUntil && ` · ${he.promo.validUntil} ${formatShortDate(p.validUntil, tenant.timezone, tenant.locale)}`}
                     {p.usageLimit != null && ` · ${fmt(he.promo.used, { used: p.usedCount, limit: p.usageLimit })}`}
+                    {p.productIds != null &&
+                      ` · ${fmt(he.promo.productsSome, { n: p.productIds.length, total: productList.length })}`}
                   </p>
                 </div>
                 <Pill tone={p.active ? 'ok' : 'muted'}>{p.active ? he.common.active : he.common.inactive}</Pill>
