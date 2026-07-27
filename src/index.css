@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Tenant-driven theme.
+
+   The tenant document carries exactly four colours: { primary, accent,
+   surface, text }. Everything else (page background, borders, muted text) is
+   DERIVED with color-mix so a re-deploy for a new studio changes config only,
+   never CSS. TenantProvider writes the --t-* custom properties at runtime;
+   the values below are neutral defaults shown before the tenant doc loads.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --t-primary: #0070f3;
+  --t-accent: #0070f3;
+  --t-surface: #ffffff;
+  --t-text: #0b0f1a;
+
+  /* derived — never set directly, never overridden per tenant */
+  --d-page: color-mix(in srgb, var(--t-text) 4%, var(--t-surface));
+  --d-line: color-mix(in srgb, var(--t-text) 11%, var(--t-surface));
+  --d-hair: color-mix(in srgb, var(--t-text) 6%, var(--t-surface));
+  --d-muted: color-mix(in srgb, var(--t-text) 64%, var(--t-surface));
+  --d-faint: color-mix(in srgb, var(--t-text) 42%, var(--t-surface));
+  --d-on-primary: #ffffff;
+}
+
+@theme inline {
+  --font-sans: "Heebo", "Assistant", "Rubik", "Noto Sans Hebrew", system-ui,
+    -apple-system, "Segoe UI", sans-serif;
+
+  --color-primary: var(--t-primary);
+  --color-accent: var(--t-accent);
+  --color-surface: var(--t-surface);
+  --color-ink: var(--t-text);
+  --color-page: var(--d-page);
+  --color-line: var(--d-line);
+  --color-hair: var(--d-hair);
+  --color-muted: var(--d-muted);
+  --color-faint: var(--d-faint);
+  --color-on-primary: var(--d-on-primary);
+
+  /* semantic status colours — not tenant-themable on purpose */
+  --color-ok: #16a34a;
+  --color-warn: #d97706;
+  --color-crit: #dc2626;
+
+  --radius-card: 0.875rem;
+  --radius-field: 0.75rem;
+  --radius-sheet: 1.25rem;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--d-page);
+  color: var(--t-text);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* the cardinal phone-layout rule: no horizontal scroll, ever */
+  overflow-x: hidden;
+}
+
+/* `hidden` must WIN over any class that sets display (hard-won lesson). */
+[hidden] { display: none !important; }
+
+/* Numerals, times and prices are LTR runs inside RTL text — isolate them or
+   the digits and separators reorder ("9/10" becoming "10/9"). */
+bdi { unicode-bidi: isolate; }
+
+.tnum { font-variant-numeric: tabular-nums; }
+
+:focus-visible {
+  outline: 2px solid var(--t-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
