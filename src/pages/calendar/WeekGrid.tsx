@@ -3,7 +3,7 @@ import { addDaysKey, dateKey, formatMoney, tzParts, weekdayName } from '../../li
 import { fmt, he } from '../../locale/he'
 import { ConfirmDialog } from '../../components/ui'
 import { useTenant } from '../../tenant/TenantProvider'
-import { useCancelSession, useInstructors } from '../../data/calendar'
+import { useCancelSession, useInstructors, useSessionSeatCounts } from '../../data/calendar'
 import type { Session } from '../../types/models'
 
 const HOUR_PX = 44
@@ -34,6 +34,8 @@ export function WeekGrid({
   const todayKey = dateKey(new Date(), tz)
   const cancel = useCancelSession()
   const [pendingDelete, setPendingDelete] = useState<Session | null>(null)
+  // seats taken, counted from the registrations themselves
+  const seats = useSessionSeatCounts(sessions.map((s) => s.id))
   const instructors = useInstructors()
   const instructorName = useMemo(() => {
     const m = new Map<string, string>()
@@ -207,7 +209,7 @@ export function WeekGrid({
                     )}
                     {/* registered/capacity — physical bottom-left (spec §10) */}
                     <span className="absolute bottom-0.5 left-1 text-[0.5625rem] font-bold tnum">
-                      <bdi>{s.registeredCount}/{s.capacity}</bdi>
+                      <bdi>{seats.data?.get(s.id) ?? 0}/{s.capacity}</bdi>
                     </span>
                   </div>
                 )

@@ -4,7 +4,7 @@ import { Card, EmptyState, Loading, SectionTitle, StatCard } from '../../compone
 import { he } from '../../locale/he'
 import { dateKey, formatTime } from '../../lib/format'
 import { useTenant } from '../../tenant/TenantProvider'
-import { useInstructors, useSessionsForDay } from '../../data/calendar'
+import { useInstructors, useSessionSeatCounts, useSessionsForDay } from '../../data/calendar'
 import { useMetrics } from '../../metrics/useMetrics'
 import { SessionSheet } from '../calendar/SessionSheet'
 import type { Session } from '../../types/models'
@@ -30,6 +30,8 @@ export function HomePage() {
   }, [instructors.data])
 
   const todays = (sessions.data ?? []).filter((s) => s.status === 'scheduled')
+  // seats taken, counted from the registrations themselves
+  const seats = useSessionSeatCounts(todays.map((s) => s.id))
 
   return (
     <div className="flex flex-col gap-5">
@@ -76,7 +78,7 @@ export function HomePage() {
                   </span>
                   <span className="shrink-0 text-end">
                     <span className="block text-sm font-bold tnum">
-                      <bdi>{s.registeredCount}/{s.capacity}</bdi>
+                      <bdi>{seats.data?.get(s.id) ?? 0}/{s.capacity}</bdi>
                     </span>
                     <span className="block text-[0.6875rem] font-semibold text-faint">
                       {he.calendar.capacity}

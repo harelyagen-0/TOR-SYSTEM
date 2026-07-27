@@ -4,6 +4,7 @@ import { fmt, he } from '../../locale/he'
 import { formatMoney, formatShortDate, formatTime } from '../../lib/format'
 import { useTenant } from '../../tenant/TenantProvider'
 import {
+  HOLDS_SEAT,
   useCancelSession,
   useInstructors,
   useMarkAttendance,
@@ -55,6 +56,11 @@ export function SessionSheet({ session, onClose }: { session: Session | null; on
     ? tenant.classTypes.find((t) => t.id === session.classTypeId)?.labelHe ?? ''
     : ''
 
+  // seats taken = the registrant rows already loaded here, minus cancellations
+  const seatsTaken = (registrants.data ?? []).filter((r) =>
+    HOLDS_SEAT.includes(r.registration.status),
+  ).length
+
   // passes / subscriptions that admit to THIS class type — derived from each
   // product's allowedClassTypeIds, so editing a product updates this at once
   const entryProducts = useMemo(
@@ -83,7 +89,7 @@ export function SessionSheet({ session, onClose }: { session: Session | null; on
         <>
           <div className="grid grid-cols-3 gap-2 text-center">
             <MiniStat
-              value={`${session.registeredCount}/${session.capacity}`}
+              value={`${seatsTaken}/${session.capacity}`}
               label={he.calendar.capacity}
             />
             <MiniStat

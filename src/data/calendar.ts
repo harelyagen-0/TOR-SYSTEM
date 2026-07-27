@@ -99,6 +99,42 @@ export function useInstructors() {
   })
 }
 
+/** a registration holds a seat unless it was cancelled */
+export const HOLDS_SEAT: RegistrationStatus[] = ['booked', 'attended', 'noShow']
+
+/**
+ * Live seat counts per session, counted from the registration documents
+ * themselves rather than the denormalised `session.registeredCount` — nothing
+ * maintains that field, so it drifts as soon as anyone registers or cancels.
+ * Firestore caps an `in` filter at 30 values, so the ids are queried in chunks.
+ */
+export function useSessionSeatCounts(sessionIds: string[]) {
+  const tenantId = useTenantId()
+  const ids = [...sessionIds].sort()
+  return useQuery({
+    queryKey: ['registrations', tenantId, 'counts', ids],
+    enabled: ids.length > 0,
+    queryFn: async () => {
+      const counts = new Map<string, number>(ids.map((id) => [id, 0]))
+      for (let i = 0; i < ids.length; i += 30) {
+        const chunk = ids.slice(i, i + 30)
+        const snap = await getDocs(
+          query(
+            tenantCol<Registration>(tenantId, 'registrations'),
+            where('sessionId', 'in', chunk),
+          ),
+        )
+        for (const d of snap.docs) {
+          const r = d.data()
+          if (!HOLDS_SEAT.includes(r.status)) continue
+          counts.set(r.sessionId, (counts.get(r.sessionId) ?? 0) + 1)
+        }
+      }
+      return counts
+    },
+  })
+}
+
 export interface RegistrantRow {
   registration: Registration
   customer: Customer | null
