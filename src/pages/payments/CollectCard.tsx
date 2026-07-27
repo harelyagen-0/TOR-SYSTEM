@@ -145,6 +145,8 @@ export function CollectCard() {
       const id = await createPayment.mutateAsync({
         customerId,
         walkInName: who === 'walkIn' ? walkInName.trim() : undefined,
+        walkInPhone: who === 'walkIn' ? walkIn.phone.trim() || undefined : undefined,
+        walkInEmail: who === 'walkIn' ? walkIn.email.trim() || undefined : undefined,
         items: cartLines,
         amount,
         promoCodeId: promoState?.ok ? promoState.promo.id : undefined,

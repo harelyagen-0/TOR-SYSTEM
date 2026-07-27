@@ -92,6 +92,10 @@ export interface Payment {
   /** exactly one of customerId / walkInName is set */
   customerId?: string
   walkInName?: string
+  /** optional walk-in contact details — no customer card is opened, but the
+   *  receipt can still be re-sent and the payer reached about a refund */
+  walkInPhone?: string
+  walkInEmail?: string
   productId: string
   /** name + price at time of sale — never join to a mutable product.
    *  For a multi-line purchase this is the first line (back-compat / refunds). */

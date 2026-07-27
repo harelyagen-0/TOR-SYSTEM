@@ -19,6 +19,9 @@ export interface CartLine {
 export interface CreatePaymentInput {
   customerId?: string
   walkInName?: string
+  /** optional walk-in contact details (no customer card is created) */
+  walkInPhone?: string
+  walkInEmail?: string
   /** one or more products, each with a quantity (spec §8.1) */
   items: CartLine[]
   /** final total after promo discount */
@@ -45,6 +48,8 @@ export function useCreatePayment() {
       const ref = await addDoc(rawCol(tenantId, 'payments'), {
         customerId: input.customerId ?? null,
         walkInName: input.walkInName ?? null,
+        walkInPhone: input.walkInPhone ?? null,
+        walkInEmail: input.walkInEmail ?? null,
         // representative product = first line (refunds + back-compat readers)
         productId: first.id,
         productSnapshot: { name: first.name, price: first.price, kind: first.kind },
@@ -89,6 +94,8 @@ export function useRecordRefund() {
       await addDoc(rawCol(tenantId, 'payments'), {
         customerId: original.customerId ?? null,
         walkInName: original.walkInName ?? null,
+        walkInPhone: original.walkInPhone ?? null,
+        walkInEmail: original.walkInEmail ?? null,
         productId: original.productId,
         productSnapshot: original.productSnapshot,
         amount: -Math.abs(original.amount),
