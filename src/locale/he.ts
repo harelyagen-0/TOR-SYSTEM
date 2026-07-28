@@ -98,6 +98,7 @@ export const he = {
     phone: 'טלפון',
     email: 'אימייל',
     walkInName: 'שם לקבלה',
+    walkInSingleOnly: 'ללקוח מזדמן ניתן למכור כניסה בודדת בלבד — כרטיסייה או מנוי דורשים כרטיס לקוח',
     walkInHint: 'התשלום יירשם בספרים, אבל לא ייפתח כרטיס לקוח.',
 
     // step 2 — product

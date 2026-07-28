@@ -45,6 +45,31 @@ export function CollectCard() {
   const [promoTyped, setPromoTyped] = useState('')
   const [promoState, setPromoState] = useState<PromoValidation | null>(null)
 
+  /**
+   * A walk-in has no customer record, so a punch card or subscription bought
+   * under one has nowhere to be granted — the money would be taken and nothing
+   * delivered. Walk-ins may buy single entries only; passes require a customer.
+   */
+  const sellableProducts = useMemo(
+    () => (products.data ?? []).filter((p) => who !== 'walkIn' || p.kind === 'single'),
+    [products.data, who],
+  )
+
+  /** switching payer drops anything the new payer may not buy */
+  function chooseWho(next: WhoMode) {
+    setWho(next)
+    setPromoState(null)
+    if (next === 'walkIn') {
+      setCart((c) => {
+        const kept: Record<string, number> = {}
+        for (const [id, q] of Object.entries(c)) {
+          if ((products.data ?? []).find((p) => p.id === id)?.kind === 'single') kept[id] = q
+        }
+        return kept
+      })
+    }
+  }
+
   const productById = useMemo(
     () => new Map((products.data ?? []).map((p) => [p.id, p])),
     [products.data],
@@ -208,9 +233,9 @@ export function CollectCard() {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2" role="radiogroup" aria-label={he.payments.whoTitle}>
             <p className="text-sm font-bold">{he.payments.whoTitle}</p>
-            <OptionTile selected={who === 'existing'} onSelect={() => setWho('existing')} title={he.payments.whoExisting} subtitle={he.payments.whoExistingSub} />
-            <OptionTile selected={who === 'new'} onSelect={() => setWho('new')} title={he.payments.whoNew} subtitle={he.payments.whoNewSub} />
-            <OptionTile selected={who === 'walkIn'} onSelect={() => setWho('walkIn')} title={he.payments.whoWalkIn} subtitle={he.payments.whoWalkInSub} />
+            <OptionTile selected={who === 'existing'} onSelect={() => chooseWho('existing')} title={he.payments.whoExisting} subtitle={he.payments.whoExistingSub} />
+            <OptionTile selected={who === 'new'} onSelect={() => chooseWho('new')} title={he.payments.whoNew} subtitle={he.payments.whoNewSub} />
+            <OptionTile selected={who === 'walkIn'} onSelect={() => chooseWho('walkIn')} title={he.payments.whoWalkIn} subtitle={he.payments.whoWalkInSub} />
           </div>
 
           {who === 'existing' && (
@@ -304,10 +329,13 @@ export function CollectCard() {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <p className="text-sm font-bold">{he.payments.productTitle}</p>
+            {who === 'walkIn' && (
+              <p className="text-xs text-faint">{he.payments.walkInSingleOnly}</p>
+            )}
             {products.isLoading ? (
               <Loading />
             ) : (
-              (products.data ?? []).map((p) => {
+              sellableProducts.map((p) => {
                 const qty = cart[p.id] ?? 0
                 return (
                   <div

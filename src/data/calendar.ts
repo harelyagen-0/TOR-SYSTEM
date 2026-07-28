@@ -104,8 +104,8 @@ export const HOLDS_SEAT: RegistrationStatus[] = ['booked', 'attended', 'noShow']
 
 /**
  * Live seat counts per session, counted from the registration documents
- * themselves rather than the denormalised `session.registeredCount` — nothing
- * maintains that field, so it drifts as soon as anyone registers or cancels.
+ * themselves — there is no denormalised counter to drift out of step with the
+ * registrant list, which is exactly what the old `registeredCount` field did.
  * Firestore caps an `in` filter at 30 values, so the ids are queried in chunks.
  */
 export function useSessionSeatCounts(sessionIds: string[]) {
@@ -200,7 +200,6 @@ export function useCreateSession() {
         endAt: Timestamp.fromDate(endAt),
         capacity: input.capacity,
         price: input.price,
-        registeredCount: 0,
         status: 'scheduled',
       })
     },
@@ -422,8 +421,7 @@ export function useCreateRecurrence() {
           endAt: Timestamp.fromDate(endAt),
           capacity: template.capacity,
           price: template.price,
-          registeredCount: 0,
-          status: 'scheduled',
+            status: 'scheduled',
         })
       }
     },

@@ -280,7 +280,7 @@ export async function materialiseTenantSessions(tenantId) {
         db.collection(`tenants/${tenantId}/classTemplates`).get(),
     ]);
     const templates = new Map(tplSnap.docs.map((d) => [d.id, d.data()]));
-    let created = 0;
+    const candidates = [];
     for (const recDoc of recSnap.docs) {
         const rec = recDoc.data();
         const tpl = templates.get(rec.templateId);
@@ -299,25 +299,40 @@ export async function materialiseTenantSessions(tenantId) {
                 continue;
             // deterministic id = occurrence identity → materialisation is idempotent
             // and an operator's edit to an existing occurrence is never overwritten
-            const sessionId = `${recDoc.id}_${ymd}`;
-            const ref = db.doc(`tenants/${tenantId}/sessions/${sessionId}`);
-            const exists = await ref.get();
-            if (exists.exists)
-                continue;
-            const startAt = zonedTimeToUtc(ymd, rec.time, tz);
-            const endAt = new Date(startAt.getTime() + tpl.durationMinutes * 60_000);
-            await ref.set({
-                templateId: rec.templateId, recurrenceId: recDoc.id, occurrenceDate: ymd,
-                title: tpl.title, classTypeId: tpl.classTypeId,
-                instructorId: tpl.defaultInstructorId ?? null,
-                startAt: Timestamp.fromDate(startAt), endAt: Timestamp.fromDate(endAt),
-                capacity: tpl.capacity, price: tpl.price,
-                registeredCount: 0, status: 'scheduled',
+            candidates.push({
+                ref: db.doc(`tenants/${tenantId}/sessions/${recDoc.id}_${ymd}`),
+                ymd, rec, recId: recDoc.id, tpl,
             });
-            created++;
         }
     }
-    return created;
+    if (candidates.length === 0)
+        return 0;
+    // 2 · one getAll per 300 refs instead of a round-trip per occurrence
+    const missing = [];
+    for (let i = 0; i < candidates.length; i += 300) {
+        const slice = candidates.slice(i, i + 300);
+        const snaps = await db.getAll(...slice.map((c) => c.ref));
+        snaps.forEach((s, j) => { if (!s.exists)
+            missing.push(slice[j]); });
+    }
+    // 3 · batched writes (Firestore caps a batch at 500)
+    for (let i = 0; i < missing.length; i += 500) {
+        const batch = db.batch();
+        for (const c of missing.slice(i, i + 500)) {
+            const startAt = zonedTimeToUtc(c.ymd, c.rec.time, tz);
+            const endAt = new Date(startAt.getTime() + c.tpl.durationMinutes * 60_000);
+            batch.set(c.ref, {
+                templateId: c.rec.templateId, recurrenceId: c.recId, occurrenceDate: c.ymd,
+                title: c.tpl.title, classTypeId: c.tpl.classTypeId,
+                instructorId: c.tpl.defaultInstructorId ?? null,
+                startAt: Timestamp.fromDate(startAt), endAt: Timestamp.fromDate(endAt),
+                capacity: c.tpl.capacity, price: c.tpl.price,
+                status: 'scheduled',
+            });
+        }
+        await batch.commit();
+    }
+    return missing.length;
 }
 export const materialiseSessions = onSchedule({ schedule: 'every day 03:00', timeZone: 'Asia/Jerusalem' }, async () => {
     const tenants = await db.collection('tenants').get();
@@ -374,15 +389,52 @@ export const resendReport = onCall(async (request) => {
     await compileAndSendReport(tenantId, period);
     return { ok: true };
 });
+/** the month before `now`, as a 'YYYY-MM' key in the given timezone */
+function previousMonthKey(now, tz) {
+    const [y, m] = dateKeyOf(now, tz).split('-').map(Number);
+    return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
+}
 export const monthlyAccountantReport = onSchedule({ schedule: '0 6 1 * *', timeZone: 'Asia/Jerusalem' }, // 1st of month, 06:00
 async () => {
     const now = new Date();
-    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 15);
-    const period = monthKeyOf(prev, 'Asia/Jerusalem');
     const tenants = await db.collection('tenants').get();
     for (const t of tenants.docs) {
+        // the period is each studio's own previous month, not the server's
+        const period = previousMonthKey(now, await tenantTz(t.id));
         await compileAndSendReport(t.id, period);
         logger.info(`report ${period} compiled for ${t.id}`);
+    }
+});
+// ── entitlement expiry ──────────────────────────────────────────────────────
+/**
+ * A punch card carries `expiresAt` (a year from purchase) but nothing ever
+ * acted on it: the document stayed `active` forever, so an expired card still
+ * looked redeemable. This sweep flips lapsed cards to `expired` once a day.
+ */
+export async function expireTenantEntitlements(tenantId) {
+    const now = Timestamp.now();
+    const snap = await db
+        .collection(`tenants/${tenantId}/entitlements`)
+        .where('status', '==', 'active')
+        .where('expiresAt', '<=', now)
+        .get();
+    if (snap.empty)
+        return 0;
+    // one batch per 500 docs (Firestore's write limit)
+    for (let i = 0; i < snap.docs.length; i += 500) {
+        const batch = db.batch();
+        for (const d of snap.docs.slice(i, i + 500))
+            batch.update(d.ref, { status: 'expired' });
+        await batch.commit();
+    }
+    return snap.size;
+}
+export const expireEntitlements = onSchedule({ schedule: 'every day 02:30', timeZone: 'Asia/Jerusalem' }, async () => {
+    const tenants = await db.collection('tenants').get();
+    for (const t of tenants.docs) {
+        const n = await expireTenantEntitlements(t.id);
+        if (n > 0)
+            logger.info(`expired ${n} entitlements for ${t.id}`);
     }
 });
 //# sourceMappingURL=index.js.map

@@ -253,7 +253,6 @@ export interface Session {
   endAt: Timestamp
   capacity: number
   price: number
-  registeredCount: number
   status: 'scheduled' | 'cancelled'
 }
 

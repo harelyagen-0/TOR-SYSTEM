@@ -233,7 +233,7 @@ async function main() {
     .filter((s) => s.offset < 0)
     .map((s) => ({ id: s.id, start: s.startAt, cap: s.tpl.capacity, price: s.tpl.price }))
     .sort((a, b) => b.start - a.start)
-  const sessionSeatCount = {}  // attended/no-show only → session registeredCount
+  const sessionSeatCount = {}  // attended/no-show tally, for capacity sanity only
   const sessionHold = {}       // any pick → capacity + distinctness guard
   const custRegs = {}          // c.id → [{ session, status, lateCancel, coverage, charge }]
   for (const c of customerDefs) {
@@ -266,18 +266,16 @@ async function main() {
     custRegs[c.id] = rows
   }
 
-  // ── write sessions (past count = real seats taken, future = illustrative) ──
+  // ── write sessions — occupancy is NOT stored: it is counted live from the
+  // registration documents, so a session shows exactly who is registered ─────
   const sessionIds = []
   for (const s of sessionDescs) {
-    const registered = s.offset < 0
-      ? (sessionSeatCount[s.id] ?? 0)
-      : Math.max(0, Math.min(s.tpl.capacity, Math.round(s.tpl.capacity * (0.3 + ((s.offset + 7) * 7 % 60) / 100))))
     await col('sessions').doc(s.id).set({
       templateId: s.tpl.id, recurrenceId: s.r.id, occurrenceDate: s.ymd,
       title: s.tpl.title, classTypeId: s.tpl.classTypeId, instructorId: s.tpl.defaultInstructorId,
       startAt: ts(s.startAt), endAt: ts(s.endAt),
       capacity: s.tpl.capacity, price: s.tpl.price,
-      registeredCount: registered, status: 'scheduled',
+      status: 'scheduled',
     })
     sessionIds.push(s.id)
   }
@@ -313,7 +311,6 @@ async function main() {
         sessionId: sid, ...r, sourceEntitlementId: null, paymentId: null, createdAt: ts(daysAgo(0)),
       })
     }
-    await col('sessions').doc(sid).update({ registeredCount: regs.length })
   }
 
   // ── payments + ledger + invoices, generated from each customer's purchases ─
