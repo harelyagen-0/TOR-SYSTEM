@@ -206,6 +206,8 @@ export const he = {
     fixed: 'סכום קבוע',
     value: 'גובה ההנחה',
     usageLimit: 'מקסימום שימושים',
+    valueRangePercent: 'אחוז ההנחה חייב להיות גדול מ־0 ועד 100',
+    valueRangeFixed: 'סכום ההנחה חייב להיות גדול מ־0',
     used: 'נוצל {used} מתוך {limit}',
     empty: 'אין עדיין קודי הנחה',
     editTitle: 'עריכת קוד',

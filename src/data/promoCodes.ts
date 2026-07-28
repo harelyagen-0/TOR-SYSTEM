@@ -76,10 +76,14 @@ export function validatePromo(
     return { ok: false, reason: he.payments.promoProduct }
   }
   const eligibleSubtotal = eligible.reduce((s, l) => s + l.price * l.quantity, 0)
+  // clamp defensively: the sheet keeps percent in (0, 100] and fixed above 0,
+  // but a code stored before that rule — or edited outside the app — must never
+  // discount more than the eligible lines are worth, nor hand money back
+  const value = Math.max(0, code.value)
   const discount =
     code.discountKind === 'percent'
-      ? Math.round(eligibleSubtotal * (code.value / 100))
-      : Math.min(code.value, eligibleSubtotal)
+      ? Math.round(eligibleSubtotal * (Math.min(100, value) / 100))
+      : Math.min(value, eligibleSubtotal)
   return { ok: true, promo: code, discountedAmount: Math.max(0, total - discount) }
 }
 

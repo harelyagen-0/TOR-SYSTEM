@@ -131,7 +131,10 @@ export interface Entitlement {
   /** punch cards */
   remaining?: number
   expiresAt?: Timestamp
-  status: 'active' | 'used' | 'expired'
+  /** 'revoked' = the payment that granted it was refunded */
+  status: 'active' | 'used' | 'expired' | 'revoked'
+  /** the payment this was granted by — set on refund reversal / audit */
+  paymentId?: string
   createdAt: Timestamp
 }
 
@@ -149,6 +152,8 @@ export interface Subscription {
   endsAt?: Timestamp
   status: SubscriptionStatus
   growTokenRef?: string
+  /** the payment this was granted by — set on refund reversal / audit */
+  paymentId?: string
 }
 
 // ── promo codes ─────────────────────────────────────────────────────────────

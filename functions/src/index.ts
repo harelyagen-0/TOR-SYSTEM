@@ -112,6 +112,34 @@ const mockMessageSender: MessageSender = {
   },
 }
 
+// ── payment lines ───────────────────────────────────────────────────────────
+/** one purchased line of a payment */
+interface Line { productId: string; name: string; kind: string; quantity: number }
+
+/** A purchase is one or more lines (product × quantity). Older / seed payments
+ *  have no `items` array — fall back to the single product snapshot. */
+function linesOf(payment: FirebaseFirestore.DocumentData): Line[] {
+  return Array.isArray(payment.items) && payment.items.length > 0
+    ? (payment.items as Line[])
+    : [{
+        productId: payment.productId,
+        name: payment.productSnapshot?.name ?? '',
+        kind: payment.productSnapshot?.kind,
+        quantity: 1,
+      }]
+}
+
+/** Every granted unit of a payment, with the line + unit index that forms its
+ *  deterministic document id. Granting and revoking walk the same sequence. */
+function* grantUnits(payment: FirebaseFirestore.DocumentData) {
+  const items = linesOf(payment)
+  for (let li = 0; li < items.length; li++) {
+    const line = items[li]
+    if (line.kind !== 'punchCard' && line.kind !== 'subscription') continue
+    for (let unit = 0; unit < line.quantity; unit++) yield { li, unit, line }
+  }
+}
+
 // ── payment lifecycle ───────────────────────────────────────────────────────
 export const onPaymentWritten = onDocumentWritten(
   'tenants/{tenantId}/payments/{paymentId}',
@@ -125,41 +153,89 @@ export const onPaymentWritten = onDocumentWritten(
 
     // A) a REFUND doc appearing (negative amount referencing an original)
     if (after.refundOfPaymentId && after.amount < 0 && !before) {
-      if (!after.invoiceId) {
-        const { invoiceId } = await mockInvoiceProvider.issueCreditInvoice(tenantId, paymentId, after.amount)
-        await event.data!.after.ref.update({ invoiceId, status: 'refunded' })
-        await col('payments').doc(after.refundOfPaymentId).update({ status: 'refunded' })
-        await col('ledger').doc(`led_${paymentId}`).set({
-          kind: 'refund', amount: after.amount,
-          description: `זיכוי — ${after.productSnapshot?.name ?? ''}`,
-          refId: paymentId, invoiceId,
-          period: monthKeyOf(new Date(), tz), createdAt: FieldValue.serverTimestamp(),
+      if (after.invoiceId) return // this refund doc is already processed
+      const originalId = after.refundOfPaymentId as string
+      const originalRef = col('payments').doc(originalId)
+
+      // Claim the original transactionally: only the first refund to observe a
+      // refundable payment proceeds. Two refund docs racing on one payment can
+      // no longer both issue a credit invoice and post a negative ledger line.
+      const original = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(originalRef)
+        const data = snap.data()
+        if (!data || data.status === 'refunded') return null
+        tx.update(originalRef, { status: 'refunded' })
+        return data
+      })
+      if (!original) {
+        logger.warn(`refund ${paymentId}: ${originalId} is already refunded — skipping`)
+        return
+      }
+
+      const { invoiceId } = await mockInvoiceProvider.issueCreditInvoice(tenantId, paymentId, after.amount)
+      await event.data!.after.ref.update({ invoiceId, status: 'refunded' })
+      await col('ledger').doc(`led_${paymentId}`).set({
+        kind: 'refund', amount: after.amount,
+        description: `זיכוי — ${after.productSnapshot?.name ?? ''}`,
+        refId: paymentId, invoiceId,
+        period: monthKeyOf(new Date(), tz), createdAt: FieldValue.serverTimestamp(),
+      })
+
+      // Reverse what the original payment GRANTED, not just its money.
+      // Grants carry deterministic ids (`ent_<paymentId>_<line>_<unit>`), so the
+      // exact docs are addressable without a query or an index.
+      for (const { li, unit, line } of grantUnits(original)) {
+        if (line.kind === 'punchCard') {
+          const ref = col('entitlements').doc(`ent_${originalId}_${li}_${unit}`)
+          if ((await ref.get()).exists) await ref.update({ status: 'revoked', remaining: 0 })
+        } else if (line.kind === 'subscription') {
+          const ref = col('subscriptions').doc(`sub_${originalId}_${li}_${unit}`)
+          if ((await ref.get()).exists) {
+            await ref.update({ status: 'cancelled', endsAt: FieldValue.serverTimestamp() })
+          }
+        }
+      }
+
+      // lifetime spend must fall back by the refunded amount (it is negative)
+      if (original.customerId) {
+        await col('customers').doc(original.customerId as string).update({
+          'stats.totalSpent': FieldValue.increment(after.amount),
+        })
+      }
+
+      // hand the promo use back so a limited code is not burned by a refund
+      if (original.promoCodeId) {
+        const promoRef = col('promoCodes').doc(original.promoCodeId as string)
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(promoRef)
+          if (!snap.exists) return
+          const used = (snap.data()?.usedCount as number) ?? 0
+          tx.update(promoRef, { usedCount: Math.max(0, used - 1) })
         })
       }
       return
     }
 
-    // B) a payment transitioning to PAID
+    // B) a payment transitioning to PAID.
+    // A fully-discounted sale settles at ₪0 and must still be invoiced,
+    // recorded and — above all — GRANT what it bought. Only a negative amount
+    // (a refund, handled above) is excluded here.
     const becamePaid = after.status === 'paid' && before?.status !== 'paid'
-    if (!becamePaid || after.amount <= 0) return
-    if (after.invoiceId) return // already processed (idempotence marker)
+    if (!becamePaid || after.amount < 0) return
+    if (after.grantsAppliedAt) return // fully processed
 
-    const { invoiceId } = await mockInvoiceProvider.issueInvoice(tenantId, paymentId, after.amount)
-    await event.data!.after.ref.update({ invoiceId })
+    // The invoice number is allocated once (the counter must not advance twice);
+    // everything after it is idempotent by deterministic id, and `grantsAppliedAt`
+    // is only written when all of it has landed — so a trigger that dies midway
+    // retries into the remaining work instead of skipping it forever.
+    let invoiceId = after.invoiceId as string | undefined
+    if (!invoiceId) {
+      const issued = await mockInvoiceProvider.issueInvoice(tenantId, paymentId, after.amount)
+      invoiceId = issued.invoiceId
+      await event.data!.after.ref.update({ invoiceId })
+    }
 
-    // a purchase is one or more lines (product × quantity). Older / seed
-    // payments have no `items` array — fall back to the single snapshot.
-    type Line = { productId: string; name: string; kind: string; quantity: number }
-    const items: Line[] =
-      Array.isArray(after.items) && after.items.length > 0
-        ? (after.items as Line[])
-        : [{
-            productId: after.productId,
-            name: after.productSnapshot?.name ?? '',
-            kind: after.productSnapshot?.kind,
-            quantity: 1,
-          }]
-
+    const items = linesOf(after)
     const summary = items
       .map((l) => (l.quantity > 1 ? `${l.name} ×${l.quantity}` : l.name))
       .join(', ')
@@ -173,39 +249,42 @@ export const onPaymentWritten = onDocumentWritten(
     // what the purchase grants — one entitlement / subscription per unit, with
     // deterministic ids (`..._<line>_<unit>`) so a trigger replay never doubles
     if (after.customerId) {
-      for (let li = 0; li < items.length; li++) {
-        const line = items[li]
-        if (line.kind !== 'punchCard' && line.kind !== 'subscription') continue
+      for (const { li, unit, line } of grantUnits(after)) {
         const product = (await col('products').doc(line.productId).get()).data()
-        for (let u = 0; u < line.quantity; u++) {
-          if (line.kind === 'punchCard') {
-            await col('entitlements').doc(`ent_${paymentId}_${li}_${u}`).set({
-              customerId: after.customerId, productId: line.productId, kind: 'punchCard',
-              remaining: product?.punchCount ?? 0,
-              expiresAt: Timestamp.fromDate(new Date(Date.now() + 365 * 86400_000)),
-              status: 'active', createdAt: FieldValue.serverTimestamp(),
-            })
-          } else {
-            const intervalDays = (product?.intervalDays as number) ?? 30
-            await col('subscriptions').doc(`sub_${paymentId}_${li}_${u}`).set({
-              customerId: after.customerId, productId: line.productId,
-              productSnapshot: { name: line.name, price: product?.price ?? 0 },
-              startedAt: FieldValue.serverTimestamp(), intervalDays,
-              nextChargeAt: Timestamp.fromDate(new Date(Date.now() + intervalDays * 86400_000)),
-              endsAt: null, status: 'active',
-              growTokenRef: after.growTransactionId ?? null, // [OPEN — spec Q2] recurring token flow
-            })
-          }
+        if (line.kind === 'punchCard') {
+          await col('entitlements').doc(`ent_${paymentId}_${li}_${unit}`).set({
+            customerId: after.customerId, productId: line.productId, kind: 'punchCard',
+            remaining: product?.punchCount ?? 0,
+            expiresAt: Timestamp.fromDate(new Date(Date.now() + 365 * 86400_000)),
+            status: 'active', paymentId, createdAt: FieldValue.serverTimestamp(),
+          })
+        } else {
+          const intervalDays = (product?.intervalDays as number) ?? 30
+          await col('subscriptions').doc(`sub_${paymentId}_${li}_${unit}`).set({
+            customerId: after.customerId, productId: line.productId,
+            productSnapshot: { name: line.name, price: product?.price ?? 0 },
+            startedAt: FieldValue.serverTimestamp(), intervalDays,
+            nextChargeAt: Timestamp.fromDate(new Date(Date.now() + intervalDays * 86400_000)),
+            endsAt: null, status: 'active', paymentId,
+            growTokenRef: after.growTransactionId ?? null, // [OPEN — spec Q2] recurring token flow
+          })
         }
       }
     }
 
-    // denormalised customer stats
-    if (after.customerId) {
-      await col('customers').doc(after.customerId).update({
-        'stats.totalSpent': FieldValue.increment(after.amount),
-      })
-    }
+    // Denormalised customer stats + the completion marker, together in one
+    // transaction: `stats.totalSpent` is the only non-idempotent write in this
+    // handler, so it must land exactly once, with the marker that proves it did.
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(event.data!.after.ref)
+      if (snap.data()?.grantsAppliedAt) return // a concurrent retry got there first
+      if (after.customerId) {
+        tx.update(col('customers').doc(after.customerId), {
+          'stats.totalSpent': FieldValue.increment(after.amount),
+        })
+      }
+      tx.update(event.data!.after.ref, { grantsAppliedAt: FieldValue.serverTimestamp() })
+    })
   },
 )
 

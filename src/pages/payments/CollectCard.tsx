@@ -130,7 +130,10 @@ export function CollectCard() {
       const provider = getPaymentProvider(tenant)
       let status: 'pending' | 'paid' = 'paid'
       let growTransactionId: string | undefined
-      if (method === 'card') {
+      // a fully-discounted (₪0) sale never goes to the card provider — there is
+      // nothing to charge and no link worth sending; it is settled on the spot
+      // and still grants everything it bought
+      if (method === 'card' && amount > 0) {
         if (cardMode === 'charge') {
           const res = await provider.charge(amount, cartSummary)
           growTransactionId = res.transactionId

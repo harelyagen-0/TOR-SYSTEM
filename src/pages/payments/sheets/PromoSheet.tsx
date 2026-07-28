@@ -68,6 +68,16 @@ export function PromoSheet({ open, onClose }: { open: boolean; onClose: () => vo
   // code that can never be redeemed
   const productsInvalid = productIds !== null && productIds.length === 0
 
+  // a percent discount lives in (0, 100]: 0 discounts nothing, and anything
+  // over 100 would hand money back. A fixed discount only has to be positive.
+  const numericValue = Number(value)
+  const valueInvalid =
+    value.trim() === '' ||
+    Number.isNaN(numericValue) ||
+    numericValue <= 0 ||
+    (discountKind === 'percent' && numericValue > 100)
+  const valueError = discountKind === 'percent' ? he.promo.valueRangePercent : he.promo.valueRangeFixed
+
   function resetForm() {
     setEditingId(null)
     setCode(''); setName(''); setDescription(''); setDiscountKind('percent')
@@ -91,6 +101,7 @@ export function PromoSheet({ open, onClose }: { open: boolean; onClose: () => vo
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
+    if (valueInvalid) return
     if (productsInvalid) {
       setProductsOpen(true)
       return
@@ -148,7 +159,22 @@ export function PromoSheet({ open, onClose }: { open: boolean; onClose: () => vo
 
         <div className="grid grid-cols-2 gap-3">
           <Field label={he.promo.value}>
-            <Input required type="number" inputMode="decimal" min="0" dir="ltr" className="text-end tnum" value={value} onChange={(e) => setValue(e.target.value)} />
+            <Input
+              required
+              type="number"
+              inputMode="decimal"
+              min={discountKind === 'percent' ? '1' : '1'}
+              max={discountKind === 'percent' ? '100' : undefined}
+              step="any"
+              dir="ltr"
+              className="text-end tnum"
+              aria-invalid={valueInvalid || undefined}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+            />
+            {valueInvalid && value.trim() !== '' && (
+              <p className="mt-1 text-xs font-semibold text-crit">{valueError}</p>
+            )}
           </Field>
           <Field label={`${he.promo.usageLimit} ${he.common.optional}`}>
             <Input type="number" inputMode="numeric" min="1" dir="ltr" className="text-end tnum" value={usageLimit} onChange={(e) => setUsageLimit(e.target.value)} />
@@ -246,7 +272,7 @@ export function PromoSheet({ open, onClose }: { open: boolean; onClose: () => vo
         </div>
 
         <div className="flex flex-col gap-2">
-          <Button type="submit" disabled={busy || productsInvalid}>
+          <Button type="submit" disabled={busy || productsInvalid || valueInvalid}>
             {editingId ? he.promo.saveChanges : he.common.save}
           </Button>
           {editingPromo && (
