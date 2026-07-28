@@ -23,6 +23,7 @@ import {
 import { useSubscriptions, useUpdateSubscriptionStatus } from '../../data/subscriptions'
 import type { Customer, Subscription } from '../../types/models'
 import { CustomerProfileSheet } from './CustomerProfileSheet'
+import { swallow } from '../../lib/errors'
 
 type ViewMode = 'all' | 'subscribers'
 
@@ -188,7 +189,7 @@ function AddCustomerSheet({ open, onClose }: { open: boolean; onClose: () => voi
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
-    await create.mutateAsync({ firstName, lastName, phone, email })
+    await create.mutateAsync({ firstName, lastName, phone, email }).catch(swallow)
     setFirstName(''); setLastName(''); setPhone(''); setEmail('')
     onClose()
   }

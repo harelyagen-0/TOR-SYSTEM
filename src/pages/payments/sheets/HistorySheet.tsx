@@ -7,6 +7,7 @@ import { filterCustomers, useCustomerPayments, useCustomers } from '../../../dat
 import { useRecordRefund } from '../../../data/payments'
 import { PaymentStatusPill } from '../../customers/CustomerProfileSheet'
 import type { Customer, Payment } from '../../../types/models'
+import { swallow } from '../../../lib/errors'
 
 /**
  * §8.2.2 — search a customer by name or phone, see every payment (product,
@@ -120,7 +121,7 @@ export function HistorySheet({ open, onClose }: { open: boolean; onClose: () => 
         }
         onNo={() => setRefundTarget(null)}
         onYes={async () => {
-          if (refundTarget) await refund.mutateAsync(refundTarget)
+          if (refundTarget) await refund.mutateAsync(refundTarget).catch(swallow)
           setRefundTarget(null)
         }}
       />

@@ -8,6 +8,7 @@ import { useProducts } from '../../data/products'
 import { useConsumePromo, usePromoCodes, validatePromo, type PromoValidation } from '../../data/promoCodes'
 import { useCreatePayment, useWatchPayment } from '../../data/payments'
 import { getMessageSender, getPaymentProvider } from '../../integrations'
+import { useToast } from '../../components/Toast'
 import type { Customer, Product } from '../../types/models'
 
 type WhoMode = 'existing' | 'new' | 'walkIn'
@@ -31,6 +32,9 @@ export function CollectCard() {
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [busy, setBusy] = useState(false)
+  /** last failure of the confirm step, shown inline beside the button */
+  const [failure, setFailure] = useState<string | null>(null)
+  const toast = useToast()
 
   // step 1 — who
   const [who, setWho] = useState<WhoMode>('existing')
@@ -139,6 +143,7 @@ export function CollectCard() {
   async function complete() {
     if (cartLines.length === 0 || busy) return
     setBusy(true)
+    setFailure(null)
     try {
       // a NEW customer becomes a real customer record first (spec §8.1)
       let customerId = who === 'existing' ? customer?.id : undefined
@@ -186,6 +191,12 @@ export function CollectCard() {
       if (promoState?.ok) await consumePromo.mutateAsync(promoState.promo.id)
       setPaymentId(id)
       setStep(4)
+    } catch (err) {
+      // Everything the operator typed stays exactly where it is — a decline is
+      // usually transient, and re-entering a cart with a customer waiting is
+      // the last thing anyone needs. They can simply press again.
+      toast.reportError(err)
+      setFailure(he.errors.paymentFailed)
     } finally {
       setBusy(false)
     }
@@ -193,6 +204,7 @@ export function CollectCard() {
 
   function reset() {
     setStep(1)
+    setFailure(null)
     setWho('existing'); setCustomer(null); setCustQuery('')
     setNewC({ firstName: '', lastName: '', phone: '', email: '' }); setWalkIn({ name: '', phone: '', email: '' })
     setCart({}); setPromoTyped(''); setPromoState(null)
@@ -450,10 +462,16 @@ export function CollectCard() {
             </div>
           )}
 
+          {failure && (
+            <p role="alert" className="rounded-field border border-crit/25 bg-crit/5 px-3 py-2 text-xs font-semibold text-crit">
+              {failure}
+            </p>
+          )}
+
           <div className="flex gap-3 [&>*]:flex-1">
             <Button variant="ghost" onClick={() => setStep(2)}>{he.common.back}</Button>
             <Button disabled={!step3Valid || busy} onClick={complete}>
-              {busy ? he.common.loading : he.common.confirm}
+              {busy ? he.common.loading : failure ? he.errors.retry : he.common.confirm}
             </Button>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { doc, getDocs, orderBy, query, updateDoc } from 'firebase/firestore'
 import { rawCol, tenantCol } from './db'
 import { useTenantId } from './customers'
 import type { Subscription, SubscriptionStatus } from '../types/models'
+import { useToast } from '../components/Toast'
 
 export function useSubscriptions() {
   const tenantId = useTenantId()
@@ -20,10 +21,12 @@ export function useSubscriptions() {
 export function useUpdateSubscriptionStatus() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: SubscriptionStatus }) => {
       await updateDoc(doc(rawCol(tenantId, 'subscriptions'), id), { status })
     },
+    onError: reportError,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['subscriptions', tenantId] }),
   })
 }

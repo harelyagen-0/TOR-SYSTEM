@@ -14,6 +14,7 @@ import { db } from '../lib/firebase'
 import { rawCol, tenantCol } from './db'
 import { useAuth } from '../auth/AuthProvider'
 import type { Customer, Entitlement, Payment, Registration, Session } from '../types/models'
+import { useToast } from '../components/Toast'
 
 export function useTenantId(): string {
   const { tenantId } = useAuth()
@@ -158,6 +159,7 @@ export interface NewCustomerInput {
 export function useCreateCustomer() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async (input: NewCustomerInput) => {
       const counterRef = doc(rawCol(tenantId, 'counters'), 'customers')
@@ -181,6 +183,7 @@ export function useCreateCustomer() {
       })
       return { id: customerRef.id, publicId }
     },
+    onError: reportError,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['customers', tenantId] }),
   })
 }
@@ -188,10 +191,12 @@ export function useCreateCustomer() {
 export function useUpdateCustomer() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async ({ id, ...fields }: { id: string } & Partial<NewCustomerInput> & { notes?: string }) => {
       await updateDoc(doc(rawCol(tenantId, 'customers'), id), fields)
     },
+    onError: reportError,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['customers', tenantId] }),
   })
 }

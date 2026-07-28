@@ -5,6 +5,7 @@ import { ConfirmDialog } from '../../components/ui'
 import { useTenant } from '../../tenant/TenantProvider'
 import { useCancelSession, useInstructors, useSessionSeatCounts } from '../../data/calendar'
 import type { Session } from '../../types/models'
+import { swallow } from '../../lib/errors'
 
 const HOUR_PX = 44
 
@@ -224,7 +225,7 @@ export function WeekGrid({
         question={he.calendar.deleteClassConfirm}
         onNo={() => setPendingDelete(null)}
         onYes={async () => {
-          if (pendingDelete) await cancel.mutateAsync(pendingDelete)
+          if (pendingDelete) await cancel.mutateAsync(pendingDelete).catch(swallow)
           setPendingDelete(null)
         }}
       />

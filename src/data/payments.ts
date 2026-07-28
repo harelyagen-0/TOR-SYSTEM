@@ -10,6 +10,7 @@ import { rawCol } from './db'
 import { useTenantId } from './customers'
 import { useAuth } from '../auth/AuthProvider'
 import type { Payment, PaymentMethod, Product } from '../types/models'
+import { useToast } from '../components/Toast'
 
 export interface CartLine {
   product: Product
@@ -42,6 +43,7 @@ export function useCreatePayment() {
   const tenantId = useTenantId()
   const { user } = useAuth()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async (input: CreatePaymentInput) => {
       const first = input.items[0].product
@@ -73,6 +75,7 @@ export function useCreatePayment() {
       })
       return ref.id
     },
+    onError: reportError,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['payments', tenantId] })
       qc.invalidateQueries({ queryKey: ['metric', tenantId] })
@@ -89,6 +92,7 @@ export function useRecordRefund() {
   const tenantId = useTenantId()
   const { user } = useAuth()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async (original: Payment) => {
       await addDoc(rawCol(tenantId, 'payments'), {
@@ -110,6 +114,7 @@ export function useRecordRefund() {
         createdBy: user?.uid ?? 'unknown',
       })
     },
+    onError: reportError,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['payments', tenantId] })
       qc.invalidateQueries({ queryKey: ['metric', tenantId] })

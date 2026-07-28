@@ -4,6 +4,7 @@ import { he } from '../../locale/he'
 import { useTenant } from '../../tenant/TenantProvider'
 import { useInstructors, useSaveInstructor } from '../../data/calendar'
 import type { Instructor } from '../../types/models'
+import { swallow } from '../../lib/errors'
 
 /**
  * §10 bottom button 2 — instructors: name, experience, and the POSITIVE list
@@ -52,7 +53,7 @@ export function InstructorsSheet({ open, onClose }: { open: boolean; onClose: ()
       experience: form.experience,
       phone: form.phone,
       allowedClassTypes: form.allowed,
-    })
+    }).catch(swallow)
     setEditingId(null)
   }
 

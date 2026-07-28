@@ -5,6 +5,7 @@ import { storage } from '../lib/firebase'
 import { rawCol, tenantCol } from './db'
 import { useTenantId } from './customers'
 import type { Expense, PaymentMethod } from '../types/models'
+import { useToast } from '../components/Toast'
 
 export function useExpenses() {
   const tenantId = useTenantId()
@@ -35,6 +36,7 @@ export interface NewExpenseInput {
 export function useCreateExpense() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async (input: NewExpenseInput) => {
       let attachmentUrl: string | null = null
@@ -57,6 +59,7 @@ export function useCreateExpense() {
         createdAt: serverTimestamp(),
       })
     },
+    onError: reportError,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['expenses', tenantId] })
       qc.invalidateQueries({ queryKey: ['ledger', tenantId] })

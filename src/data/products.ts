@@ -3,6 +3,7 @@ import { addDoc, getDocs, orderBy, query, serverTimestamp, where } from 'firebas
 import { rawCol, tenantCol } from './db'
 import { useTenantId } from './customers'
 import type { Product, ProductKind } from '../types/models'
+import { useToast } from '../components/Toast'
 
 export function useProducts(activeOnly = true) {
   const tenantId = useTenantId()
@@ -33,6 +34,7 @@ export interface NewProductInput {
 export function useCreateProduct() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async (input: NewProductInput) => {
       await addDoc(rawCol(tenantId, 'products'), {
@@ -50,6 +52,7 @@ export function useCreateProduct() {
         createdAt: serverTimestamp(),
       })
     },
+    onError: reportError,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['products', tenantId] }),
   })
 }

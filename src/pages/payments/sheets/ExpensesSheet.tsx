@@ -5,6 +5,7 @@ import { dateKey, formatMoney, formatShortDate } from '../../../lib/format'
 import { useTenant } from '../../../tenant/TenantProvider'
 import { useCreateExpense, useExpenses } from '../../../data/expenses'
 import type { Expense, PaymentMethod } from '../../../types/models'
+import { swallow } from '../../../lib/errors'
 
 /** Human label for an expense's optional payment method. */
 function methodLabelOf(e: Expense): string {
@@ -42,7 +43,7 @@ export function ExpensesSheet({ open, onClose }: { open: boolean; onClose: () =>
       paymentMethod: method ?? undefined,
       paymentMethodLabel: method === 'other' ? methodLabel : undefined,
       attachment: file ?? undefined,
-    })
+    }).catch(swallow)
     setName(''); setDescription(''); setAmount(''); setFile(null)
     setMethod(null); setMethodLabel('')
   }

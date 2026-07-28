@@ -5,6 +5,7 @@ import { formatMoney, formatShortDate, monthKey } from '../../../lib/format'
 import { useTenant } from '../../../tenant/TenantProvider'
 import { sumLedger, useLedger, usePastReports, useResendReport } from '../../../data/reports'
 import type { LedgerLineKind } from '../../../types/models'
+import { swallow } from '../../../lib/errors'
 
 /**
  * §8.3 — the accountant ledger is RUNNING: every payment/refund/expense wrote
@@ -95,7 +96,7 @@ export function ReportSheet({ open, onClose }: { open: boolean; onClose: () => v
                   className="!min-h-9 px-3"
                   disabled={resend.isPending}
                   onClick={async () => {
-                    await resend.mutateAsync(r.period)
+                    await resend.mutateAsync(r.period).catch(swallow)
                     setResent(r.period)
                   }}
                 >

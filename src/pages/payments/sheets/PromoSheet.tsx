@@ -6,6 +6,7 @@ import { useTenant } from '../../../tenant/TenantProvider'
 import { useCreatePromo, usePromoCodes, useUpdatePromo } from '../../../data/promoCodes'
 import { useProducts } from '../../../data/products'
 import type { ProductKind, PromoCode } from '../../../types/models'
+import { swallow } from '../../../lib/errors'
 
 /** quick-select buckets — "only single entries", "only subscriptions", … */
 const KIND_CHIPS: Array<{ kind: ProductKind; label: string }> = [
@@ -117,14 +118,14 @@ export function PromoSheet({ open, onClose }: { open: boolean; onClose: () => vo
       usageLimit: usageLimit ? Number(usageLimit) : undefined,
       productIds,
     }
-    if (editingId) await update.mutateAsync({ id: editingId, ...payload })
-    else await create.mutateAsync(payload)
+    if (editingId) await update.mutateAsync({ id: editingId, ...payload }).catch(swallow)
+    else await create.mutateAsync(payload).catch(swallow)
     resetForm()
   }
 
   async function toggleActive() {
     if (!editingPromo) return
-    await update.mutateAsync({ id: editingPromo.id, active: !editingPromo.active })
+    await update.mutateAsync({ id: editingPromo.id, active: !editingPromo.active }).catch(swallow)
     resetForm()
   }
 

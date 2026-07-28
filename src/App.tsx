@@ -3,6 +3,8 @@ import { useAuth } from './auth/AuthProvider'
 import { LoginPage } from './auth/LoginPage'
 import { TenantProvider } from './tenant/TenantProvider'
 import { AppShell } from './components/AppShell'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { ToastProvider } from './components/Toast'
 import { he } from './locale/he'
 import { HomePage } from './pages/home/HomePage'
 import { PaymentsPage } from './pages/payments/PaymentsPage'
@@ -42,8 +44,12 @@ export default function App() {
     )
   }
   return (
-    <TenantProvider tenantId={tenantId}>
-      <RouterProvider router={router} />
-    </TenantProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <TenantProvider tenantId={tenantId}>
+          <RouterProvider router={router} />
+        </TenantProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   )
 }

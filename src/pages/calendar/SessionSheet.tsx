@@ -13,6 +13,7 @@ import {
 } from '../../data/calendar'
 import { useProducts } from '../../data/products'
 import type { Session } from '../../types/models'
+import { swallow } from '../../lib/errors'
 
 /** §10 — tap a block: registrant list, mark attendance, edit, cancel
  *  (with the Hebrew confirm; editing never touches the series). */
@@ -196,7 +197,7 @@ export function SessionSheet({ session, onClose }: { session: Session | null; on
                       price: Number(form.price),
                       durationMinutes: Number(form.durationMinutes),
                     },
-                  })
+                  }).catch(swallow)
                   onClose()
                 }}
               >
@@ -238,7 +239,7 @@ export function SessionSheet({ session, onClose }: { session: Session | null; on
             question={he.calendar.cancelConfirm}
             onNo={() => setConfirmCancel(false)}
             onYes={async () => {
-              await cancel.mutateAsync(session)
+              await cancel.mutateAsync(session).catch(swallow)
               setConfirmCancel(false)
               onClose()
             }}

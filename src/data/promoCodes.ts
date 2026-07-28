@@ -12,6 +12,7 @@ import { rawCol, tenantCol } from './db'
 import { useTenantId } from './customers'
 import { he } from '../locale/he'
 import type { PromoCode } from '../types/models'
+import { useToast } from '../components/Toast'
 
 export function usePromoCodes() {
   const tenantId = useTenantId()
@@ -90,12 +91,14 @@ export function validatePromo(
 export function useConsumePromo() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async (promoId: string) => {
       await updateDoc(doc(rawCol(tenantId, 'promoCodes'), promoId), {
         usedCount: increment(1),
       })
     },
+    onError: reportError,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['promoCodes', tenantId] }),
   })
 }
@@ -116,6 +119,7 @@ export interface NewPromoInput {
 export function useCreatePromo() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async (input: NewPromoInput) => {
       await addDoc(rawCol(tenantId, 'promoCodes'), {
@@ -133,6 +137,7 @@ export function useCreatePromo() {
         createdAt: serverTimestamp(),
       })
     },
+    onError: reportError,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['promoCodes', tenantId] }),
   })
 }
@@ -149,6 +154,7 @@ export interface UpdatePromoInput extends Partial<NewPromoInput> {
 export function useUpdatePromo() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async ({ id, ...fields }: UpdatePromoInput & { id: string }) => {
       const data: Record<string, unknown> = {}
@@ -164,6 +170,7 @@ export function useUpdatePromo() {
       if (fields.active !== undefined) data.active = fields.active
       await updateDoc(doc(rawCol(tenantId, 'promoCodes'), id), data)
     },
+    onError: reportError,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['promoCodes', tenantId] }),
   })
 }

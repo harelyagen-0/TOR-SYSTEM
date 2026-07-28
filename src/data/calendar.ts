@@ -19,6 +19,7 @@ import { rawCol, tenantCol } from './db'
 import { useTenantId } from './customers'
 import { addDaysKey, dateKey, tzParts, zonedTimeToUtc } from '../lib/format'
 import { useTenant } from '../tenant/TenantProvider'
+import { useToast } from '../components/Toast'
 import type {
   ClassTemplate,
   Customer,
@@ -185,6 +186,7 @@ export function useCreateSession() {
   const tenantId = useTenantId()
   const tenant = useTenant()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async (input: SessionInput) => {
       const startAt = zonedTimeToUtc(input.date, input.time, tenant.timezone)
@@ -203,6 +205,7 @@ export function useCreateSession() {
         status: 'scheduled',
       })
     },
+    onError: reportError,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions', tenantId] }),
   })
 }
@@ -213,6 +216,7 @@ export function useUpdateSession() {
   const tenantId = useTenantId()
   const tenant = useTenant()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async ({
       session,
@@ -236,6 +240,7 @@ export function useUpdateSession() {
       if (changes.price != null) updates.price = changes.price
       await updateDoc(doc(rawCol(tenantId, 'sessions'), session.id), updates)
     },
+    onError: reportError,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions', tenantId] }),
   })
 }
@@ -248,6 +253,7 @@ export function useCancelSession() {
   const tenantId = useTenantId()
   const tenant = useTenant()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async (session: Session) => {
       if (session.recurrenceId) {
@@ -258,6 +264,7 @@ export function useCancelSession() {
       }
       await updateDoc(doc(rawCol(tenantId, 'sessions'), session.id), { status: 'cancelled' })
     },
+    onError: reportError,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions', tenantId] }),
   })
 }
@@ -268,6 +275,7 @@ export function useCancelSession() {
 export function useMarkAttendance() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async ({
       registration,
@@ -286,6 +294,7 @@ export function useMarkAttendance() {
         })
       }
     },
+    onError: reportError,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['registrations', tenantId] })
       qc.invalidateQueries({ queryKey: ['customers', tenantId] })
@@ -310,6 +319,7 @@ export interface TemplateInput {
 export function useSaveTemplate() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async ({ id, ...input }: TemplateInput & { id?: string }) => {
       const data = {
@@ -330,6 +340,7 @@ export function useSaveTemplate() {
       const ref = await addDoc(rawCol(tenantId, 'classTemplates'), data)
       return ref.id
     },
+    onError: reportError,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['classTemplates', tenantId] }),
   })
 }
@@ -337,10 +348,12 @@ export function useSaveTemplate() {
 export function useDeleteTemplate() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async (id: string) => {
       await deleteDoc(doc(rawCol(tenantId, 'classTemplates'), id))
     },
+    onError: reportError,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['classTemplates', tenantId] }),
   })
 }
@@ -357,6 +370,7 @@ export interface InstructorInput {
 export function useSaveInstructor() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async ({ id, ...input }: InstructorInput & { id?: string }) => {
       const data = {
@@ -370,6 +384,7 @@ export function useSaveInstructor() {
       if (id) await updateDoc(doc(rawCol(tenantId, 'instructors'), id), data)
       else await addDoc(rawCol(tenantId, 'instructors'), data)
     },
+    onError: reportError,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['instructors', tenantId] }),
   })
 }
@@ -393,6 +408,7 @@ export function useCreateRecurrence() {
   const tenantId = useTenantId()
   const tenant = useTenant()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async ({ template, weekday, time, startsOn, endsOn }: RecurrenceInput) => {
       const recRef = await addDoc(rawCol(tenantId, 'recurrences'), {
@@ -425,6 +441,7 @@ export function useCreateRecurrence() {
         })
       }
     },
+    onError: reportError,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions', tenantId] }),
   })
 }

@@ -5,6 +5,7 @@ import { functions } from '../lib/firebase'
 import { tenantCol } from './db'
 import { useTenantId } from './customers'
 import type { LedgerLine, MonthlyReport } from '../types/models'
+import { useToast } from '../components/Toast'
 
 /** The running ledger for one month — written as events happen (spec §8.3). */
 export function useLedger(period: string) {
@@ -41,11 +42,13 @@ export function usePastReports() {
 export function useResendReport() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
+  const { reportError } = useToast()
   return useMutation({
     mutationFn: async (period: string) => {
       const call = httpsCallable(functions, 'resendReport')
       await call({ period })
     },
+    onError: reportError,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['reports', tenantId] }),
   })
 }

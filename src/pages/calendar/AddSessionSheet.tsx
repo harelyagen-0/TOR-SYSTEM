@@ -12,6 +12,7 @@ import {
 } from '../../data/calendar'
 import type { ClassTemplate } from '../../types/models'
 import type { SlotTap } from './WeekGrid'
+import { swallow } from '../../lib/errors'
 
 type Mode = 'pick' | 'pickTemplate' | 'template' | 'templateEdit' | 'new'
 
@@ -110,7 +111,7 @@ export function AddSessionSheet({
         time: form.time,
         startsOn: form.date,
         endsOn: endsOn || undefined,
-      })
+      }).catch(swallow)
     } else {
       let templateId = tpl?.id
       if (saveAsTemplate && !tpl) {
@@ -122,7 +123,7 @@ export function AddSessionSheet({
           durationMinutes: Number(form.durationMinutes),
           price: Number(form.price),
           defaultStartTime: form.time,
-        })
+        }).catch(swallow)
       }
       await createSession.mutateAsync({
         title: form.title,
@@ -134,7 +135,7 @@ export function AddSessionSheet({
         capacity: Number(form.capacity),
         price: Number(form.price),
         templateId,
-      })
+      }).catch(swallow)
     }
     onClose()
   }

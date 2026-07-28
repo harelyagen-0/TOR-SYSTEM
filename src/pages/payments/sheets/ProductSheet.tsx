@@ -4,6 +4,7 @@ import { fmt, he } from '../../../locale/he'
 import { useTenant } from '../../../tenant/TenantProvider'
 import { useCreateProduct } from '../../../data/products'
 import type { ProductKind } from '../../../types/models'
+import { swallow } from '../../../lib/errors'
 
 /** §8.2.1 — name, description, price, kind (single / punch card of N /
  *  subscription every N days). */
@@ -45,7 +46,7 @@ export function ProductSheet({ open, onClose }: { open: boolean; onClose: () => 
       punchCount: Number(punchCount) || 10,
       intervalDays: Number(intervalDays) || 30,
       allowedClassTypeIds: classTypeIds,
-    })
+    }).catch(swallow)
     setName(''); setDescription(''); setPrice('')
     setClassTypeIds(null); setClassTypesOpen(false)
     onClose()

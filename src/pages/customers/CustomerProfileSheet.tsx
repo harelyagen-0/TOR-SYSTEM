@@ -13,6 +13,7 @@ import {
   type RegistrationHistoryRow,
 } from '../../data/customers'
 import type { Payment, Registration } from '../../types/models'
+import { swallow } from '../../lib/errors'
 
 /**
  * Customer profile (spec §9): details (editable), stats, payment history,
@@ -105,7 +106,7 @@ export function CustomerProfileSheet({
                 className="flex flex-col gap-3"
                 onSubmit={async (e) => {
                   e.preventDefault()
-                  await update.mutateAsync({ id: customer.id, ...form })
+                  await update.mutateAsync({ id: customer.id, ...form }).catch(swallow)
                   setEditing(false)
                 }}
               >

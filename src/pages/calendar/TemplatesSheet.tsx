@@ -6,6 +6,7 @@ import { useTenant } from '../../tenant/TenantProvider'
 import { useCreateRecurrence, useInstructors, useSaveTemplate, useTemplates } from '../../data/calendar'
 import { useProducts } from '../../data/products'
 import type { ClassTemplate } from '../../types/models'
+import { swallow } from '../../lib/errors'
 
 /** §10 bottom button 1 — manage class templates: title, class type,
  *  instructor, capacity, duration, price, default start time. */
@@ -105,7 +106,10 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
       defaultStartTime: form.defaultStartTime,
       room: form.room || undefined,
       allowedProductIds: allowedIds,
-    })
+    }).catch(swallow)
+    // the save failed (already reported) — do not schedule a recurrence that
+    // would point at a template id that was never written
+    if (savedId === undefined) return
     // opt-in: also schedule the template as a weekly recurring class
     if (recurring && startsOn) {
       await createRecurrence.mutateAsync({
@@ -124,7 +128,7 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
         time: form.defaultStartTime,
         startsOn,
         endsOn: endsOn || undefined,
-      })
+      }).catch(swallow)
     }
     setEditingId(null)
   }
