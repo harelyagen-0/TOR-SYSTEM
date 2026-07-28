@@ -4,6 +4,7 @@ import { fmt, he } from '../../locale/he'
 import { formatMoney, formatShortDate, formatTime } from '../../lib/format'
 import { useTenant } from '../../tenant/TenantProvider'
 import {
+  isEntitlementLive,
   useCustomerEntitlements,
   useCustomerPayments,
   useCustomerRegistrations,
@@ -137,12 +138,12 @@ export function CustomerProfileSheet({
           </section>
 
           {/* entitlements — punch-card balances */}
-          {(entitlements.data ?? []).filter((e) => e.status === 'active').length > 0 && (
+          {(entitlements.data ?? []).filter((e) => isEntitlementLive(e)).length > 0 && (
             <section>
               <SheetSectionTitle title={he.customers.entitlements} />
               <div className="flex flex-col gap-2">
                 {(entitlements.data ?? [])
-                  .filter((e) => e.status === 'active')
+                  .filter((e) => isEntitlementLive(e))
                   .map((e) => (
                     <div key={e.id} className="flex items-center justify-between rounded-field border border-line bg-page/60 px-3 py-2.5 text-sm">
                       <span className="font-bold">

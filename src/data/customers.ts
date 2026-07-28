@@ -67,6 +67,21 @@ export function useCustomerPayments(customerId: string | null) {
   })
 }
 
+/**
+ * Whether an entitlement can still be redeemed right now.
+ *
+ * `status` is moved to 'expired' by a nightly sweep, so between the moment a
+ * card lapses and that sweep the stored status is stale — the date is checked
+ * here too. Every read that decides "can this be used" goes through this, so
+ * the answer cannot differ between screens.
+ */
+export function isEntitlementLive(e: Entitlement, now: Date = new Date()): boolean {
+  if (e.status !== 'active') return false
+  if (e.expiresAt && e.expiresAt.toMillis() <= now.getTime()) return false
+  if (e.kind === 'punchCard' && (e.remaining ?? 0) <= 0) return false
+  return true
+}
+
 export function useCustomerEntitlements(customerId: string | null) {
   const tenantId = useTenantId()
   return useQuery({
