@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { SectionTitle } from '../../components/ui'
 import { he } from '../../locale/he'
+import { useAuth } from '../../auth/AuthProvider'
 import { CollectCard } from './CollectCard'
 import { ProductSheet } from './sheets/ProductSheet'
 import { HistorySheet } from './sheets/HistorySheet'
@@ -22,6 +23,13 @@ export function PaymentsPage() {
   const [sheet, setSheet] = useState<SheetId>(null)
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
+  const { can } = useAuth()
+
+  // the page hosts two areas: the sale tiles are `payments`, while expenses
+  // and the accountant report are `finance`
+  const canPayments = can('payments', 'view')
+  const canSell = can('payments', 'edit')
+  const canFinance = can('finance', 'view')
 
   // deep links from Home: ?action=collect (the card is already first and
   // open) · ?action=expense (open the expenses sheet)
@@ -35,17 +43,17 @@ export function PaymentsPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <CollectCard />
+      {canSell && <CollectCard />}
 
       <section>
         <SectionTitle>{he.common.actions}</SectionTitle>
         <div className="grid grid-cols-2 gap-3">
-          <ActionTile label={he.payments.actNewProduct} onClick={() => setSheet('product')} icon={<TagIcon />} />
-          <ActionTile label={he.payments.actCustomerHistory} onClick={() => setSheet('history')} icon={<ClockIcon />} />
-          <ActionTile label={he.payments.actPromoCodes} onClick={() => setSheet('promo')} icon={<TicketIcon />} />
-          <ActionTile label={he.payments.actExpenses} onClick={() => setSheet('expenses')} icon={<ReceiptIcon />} />
-          <ActionTile label={he.payments.actSubscriptions} onClick={() => navigate('/customers?view=subscribers')} icon={<RepeatIcon />} />
-          <ActionTile label={he.payments.actAccountantReport} onClick={() => setSheet('report')} icon={<FileIcon />} />
+          {canSell && <ActionTile label={he.payments.actNewProduct} onClick={() => setSheet('product')} icon={<TagIcon />} />}
+          {canPayments && <ActionTile label={he.payments.actCustomerHistory} onClick={() => setSheet('history')} icon={<ClockIcon />} />}
+          {canSell && <ActionTile label={he.payments.actPromoCodes} onClick={() => setSheet('promo')} icon={<TicketIcon />} />}
+          {canFinance && <ActionTile label={he.payments.actExpenses} onClick={() => setSheet('expenses')} icon={<ReceiptIcon />} />}
+          {canPayments && <ActionTile label={he.payments.actSubscriptions} onClick={() => navigate('/customers?view=subscribers')} icon={<RepeatIcon />} />}
+          {canFinance && <ActionTile label={he.payments.actAccountantReport} onClick={() => setSheet('report')} icon={<FileIcon />} />}
         </div>
       </section>
 

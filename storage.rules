@@ -1,13 +1,43 @@
 rules_version = '2';
 
-// Tenant-scoped storage: logos and expense receipts live under the tenant's
-// own prefix, gated by the same tenantId custom claim as Firestore.
+// Tenant-scoped storage, gated by the same claims as Firestore:
+//   tenantId — which studio this operator belongs to
+//   perms    — { pay, cus, cal, ana, fin, set } → 0 none / 1 view / 2 edit
+//
+// Uploads are permission-scoped by prefix: branding (the studio logo) needs
+// settings:edit, receipts need finance:edit. Reads stay tenant-wide — the logo
+// is rendered in the header on every page.
+//
+// Keys are read with bracket notation: `set` and `get` collide with Map
+// methods under dot access.
 service firebase.storage {
   match /b/{bucket}/o {
     match /tenants/{tenantId}/{allPaths=**} {
-      allow read, write: if request.auth != null
-        && request.auth.token.tenantId == tenantId;
+      function signedIn() {
+        return request.auth != null && request.auth.token.tenantId == tenantId;
+      }
+      allow read: if signedIn();
     }
+
+    function lvl(tenantId, area) {
+      return request.auth != null
+        && request.auth.token.tenantId == tenantId
+        && 'perms' in request.auth.token
+        && area in request.auth.token.perms
+        ? request.auth.token.perms[area]
+        : 0;
+    }
+
+    // studio logo — settings:edit
+    match /tenants/{tenantId}/branding/{allPaths=**} {
+      allow write: if lvl(tenantId, 'set') >= 2;
+    }
+
+    // expense receipts — finance:edit
+    match /tenants/{tenantId}/receipts/{allPaths=**} {
+      allow write: if lvl(tenantId, 'fin') >= 2;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

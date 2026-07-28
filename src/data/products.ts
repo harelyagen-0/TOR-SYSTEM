@@ -2,11 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addDoc, getDocs, orderBy, query, serverTimestamp, where } from 'firebase/firestore'
 import { rawCol, tenantCol } from './db'
 import { useTenantId } from './customers'
+import { useCan } from '../auth/AuthProvider'
 import type { Product, ProductKind } from '../types/models'
 
 export function useProducts(activeOnly = true) {
   const tenantId = useTenantId()
+  const enabled = useCan('payments')
   return useQuery({
+    enabled,
     queryKey: ['products', tenantId, activeOnly],
     queryFn: async () => {
       const base = tenantCol<Product>(tenantId, 'products')

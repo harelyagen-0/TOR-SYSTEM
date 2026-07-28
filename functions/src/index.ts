@@ -22,6 +22,18 @@ import { logger } from 'firebase-functions'
 initializeApp()
 const db = getFirestore()
 
+// Staff provisioning + the custom claims firestore.rules enforces.
+// NOTE: this re-export is hoisted — staff.ts is evaluated BEFORE the
+// initializeApp() call above, which is why it resolves Firestore lazily rather
+// than at module scope. Keep it that way.
+export {
+  onStaffWritten,
+  createStaff,
+  updateStaff,
+  setStaffActive,
+  resetStaffPassword,
+} from './staff.js'
+
 // ── timezone helpers (UTC storage, studio-tz rendering) ─────────────────────
 function tzParts(d: Date, tz: string) {
   const parts = new Intl.DateTimeFormat('en-US', {

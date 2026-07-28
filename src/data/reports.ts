@@ -4,12 +4,15 @@ import { httpsCallable } from 'firebase/functions'
 import { functions } from '../lib/firebase'
 import { tenantCol } from './db'
 import { useTenantId } from './customers'
+import { useCan } from '../auth/AuthProvider'
 import type { LedgerLine, MonthlyReport } from '../types/models'
 
 /** The running ledger for one month — written as events happen (spec §8.3). */
 export function useLedger(period: string) {
   const tenantId = useTenantId()
+  const enabled = useCan('finance')
   return useQuery({
+    enabled,
     queryKey: ['ledger', tenantId, period],
     queryFn: async () => {
       const snap = await getDocs(
@@ -26,7 +29,9 @@ export function useLedger(period: string) {
 
 export function usePastReports() {
   const tenantId = useTenantId()
+  const enabled = useCan('finance')
   return useQuery({
+    enabled,
     queryKey: ['reports', tenantId],
     queryFn: async () => {
       const snap = await getDocs(

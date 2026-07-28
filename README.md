@@ -20,23 +20,62 @@ npm run seed
 npm run dev
 ```
 
-Demo login: **owner@demo.test / demo1234** (tenant `demo-yoga`).
+Demo logins (tenant `demo-yoga`):
+
+| | role | sees |
+|---|---|---|
+| **owner@demo.test** / demo1234 | owner | everything, including Settings |
+| **staff@demo.test** / demo1234 | staff | calendar (edit) + customers (read-only) |
 
 Pointing at a real Firebase project later: set `VITE_FB_*` env vars and
 `VITE_USE_EMULATORS=false` — no code change.
+
+> **Upgrading an existing local setup:** authorisation now rides on a `perms`
+> custom claim. A token minted before roles existed has no `perms` and resolves
+> to "no access" by design (fail closed). Re-run `npm run seed` and sign in
+> again.
 
 ## Verification
 
 ```bash
 npx tsc -b && npm run lint && npm run build   # gates
+npm run verify:rules                          # firestore.rules vs. the role matrix
 node scripts/cdp-verify.mjs cdp-out           # real-Chrome 390px pass:
                                               # no h-scroll, 0 JS errors, screenshots
 ```
+
+`verify:rules` needs the emulators running; it asserts each role's real
+server-side allow/deny (25 cases) so the UI gating can't drift from what
+Firestore actually enforces. It writes scratch docs into `demo-yoga` — re-run
+`npm run seed` afterwards.
+
+`cdp-verify` defaults to the Windows Chrome path; set `CHROME_PATH` to run it
+elsewhere.
 
 ## Architecture notes
 
 - **Tenancy**: everything under `tenants/{tenantId}/…`; the operator's
   `tenantId` custom claim is the only trust anchor (`firestore.rules`).
+- **Roles & permissions**: six areas (payments · customers · calendar ·
+  analytics · finance · settings) × three levels (none/view/edit), with
+  owner/manager/staff presets the owner can override per person
+  (`src/auth/permissions.ts`, mirrored in `functions/src/permissions.ts` —
+  separate TS packages can't share an import). The staff doc
+  (`tenants/{t}/staff/{uid}`, id = the Auth uid) is the editable source of
+  truth; `onStaffWritten` mirrors it into custom claims, and **the claims are
+  what `firestore.rules` enforces**. Levels are numeric in the claim so rules
+  can compare them ordinally. The staff collection is write-denied to every
+  client — all mutations go through owner-gated callables, or a client could
+  grant itself anything. Staff are deactivated, never deleted
+  (`Payment.createdBy` holds a raw uid). Claim changes reach an open session
+  within seconds: the trigger bumps `claimsUpdatedAt`, which the client watches
+  to force `getIdToken(true)`.
+- **Settings** (`/settings`, gear in the header — the bottom bar stays at the
+  specced five tabs): studio profile + the four theme colours, class types,
+  business rules (cancellation window, calendar day range) + accountant, and
+  staff & permissions. Writes go straight to the tenant doc under a rules
+  key-allowlist; `integrations` is excluded on purpose — it holds provider
+  credentials and the doc is readable tenant-wide.
 - **Theme**: 4 tenant colours (`theme.primary/accent/surface/text`) → CSS
   custom properties; every other tone is derived with `color-mix`. No studio
   data is hard-coded in the UI layer.

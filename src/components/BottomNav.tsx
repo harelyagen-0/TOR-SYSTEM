@@ -1,26 +1,45 @@
+import type { ReactElement } from 'react'
 import { NavLink } from 'react-router-dom'
 import { he } from '../locale/he'
+import { useAuth } from '../auth/AuthProvider'
+import type { PermissionArea } from '../auth/permissions'
 
 /**
- * Fixed five-tab bar, identical on all pages. DOM order is the RTL visual
+ * The five-tab bar, identical on all pages. DOM order is the RTL visual
  * order right→left: בית · תשלומים · אנליטיקס · יומן · לקוחות (spec §6).
+ *
+ * Tabs an operator can't view are dropped rather than shown-and-blocked, so a
+ * staff member sees a coherent app instead of doors that refuse to open. Home
+ * has no `areas` — it is everyone's landing page and degrades on its own.
  */
-const TABS = [
+const TABS: Array<{
+  to: string
+  label: string
+  icon: (p: IconProps) => ReactElement
+  areas?: PermissionArea[]
+}> = [
   { to: '/', label: he.nav.home, icon: HomeIcon },
-  { to: '/payments', label: he.nav.payments, icon: PaymentsIcon },
-  { to: '/analytics', label: he.nav.analytics, icon: AnalyticsIcon },
-  { to: '/calendar', label: he.nav.calendar, icon: CalendarIcon },
-  { to: '/customers', label: he.nav.customers, icon: CustomersIcon },
+  { to: '/payments', label: he.nav.payments, icon: PaymentsIcon, areas: ['payments', 'finance'] },
+  { to: '/analytics', label: he.nav.analytics, icon: AnalyticsIcon, areas: ['analytics'] },
+  { to: '/calendar', label: he.nav.calendar, icon: CalendarIcon, areas: ['calendar'] },
+  { to: '/customers', label: he.nav.customers, icon: CustomersIcon, areas: ['customers'] },
 ]
 
 export function BottomNav() {
+  const { can } = useAuth()
+  const tabs = TABS.filter((t) => !t.areas || t.areas.some((a) => can(a, 'view')))
+
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <div className="mx-auto grid w-full max-w-xl grid-cols-5">
-        {TABS.map(({ to, label, icon: Icon }) => (
+      {/* the column count is dynamic, so it can't be a Tailwind grid-cols-N class */}
+      <div
+        className="mx-auto grid w-full max-w-xl"
+        style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
+      >
+        {tabs.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}

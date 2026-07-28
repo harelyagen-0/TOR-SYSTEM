@@ -9,7 +9,9 @@ import { spawn } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe'
+// Override with CHROME_PATH to run somewhere other than the usual Windows box
+// (e.g. CI or a Linux container: CHROME_PATH=/opt/pw-browsers/chromium/chrome).
+const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const PORT = 9345
 const APP = 'http://localhost:5199/'
 const OUT = process.argv[2] ?? 'cdp-out'
@@ -17,9 +19,14 @@ mkdirSync(OUT, { recursive: true })
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
+// Containers run as root, where Chrome refuses to start with its sandbox on.
+// Only applied on the CHROME_PATH override path, so a normal Windows run keeps
+// the sandbox enabled.
+const sandboxArgs = process.env.CHROME_PATH ? ['--no-sandbox', '--disable-dev-shm-usage'] : []
+
 const chrome = spawn(CHROME, [
   '--headless=new', `--remote-debugging-port=${PORT}`, '--disable-gpu',
-  '--hide-scrollbars', '--no-first-run',
+  '--hide-scrollbars', '--no-first-run', ...sandboxArgs,
   '--user-data-dir=' + path.join(OUT, '_cdp-profile'), 'about:blank',
 ], { stdio: 'ignore' })
 process.on('exit', () => chrome.kill())
@@ -119,6 +126,28 @@ for (const [href, name] of tabs) {
   await sleep(2200)
   allOk = (await audit(name)) && allOk
   await shoot(`page-${name}.png`)
+}
+
+// ── settings (header gear, not a nav tab) ───────────────────────────────────
+await ev(`(function(){ document.querySelector('header a[href="/settings"]').click(); return true })()`)
+await sleep(2200)
+allOk = (await audit('settings')) && allOk
+await shoot('page-settings.png')
+
+// each hub row opens a bottom sheet; check the tallest ones actually render
+for (const [idx, name] of [[0, 'studio'], [1, 'classTypes'], [2, 'policies'], [3, 'staff']]) {
+  const opened = await ev(
+    `(function(){ const b = document.querySelectorAll('main section:first-of-type button')[${idx}];
+       if (!b) return false; b.click(); return true })()`,
+  )
+  if (opened !== true) { console.log(`--- settings/${name} | ✗ row not found`); allOk = false; continue }
+  await sleep(1200)
+  allOk = (await audit(`settings/${name}`)) && allOk
+  await shoot(`sheet-${name}.png`)
+  // close the sheet via its backdrop before opening the next
+  await ev(`(function(){ const d = document.querySelector('[role="dialog"]');
+     if (d && d.previousElementSibling) d.previousElementSibling.click(); return true })()`)
+  await sleep(600)
 }
 
 // ── errors ───────────────────────────────────────────────────────────────────

@@ -12,7 +12,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { rawCol, tenantCol } from './db'
-import { useAuth } from '../auth/AuthProvider'
+import { useAuth, useCan } from '../auth/AuthProvider'
 import type { Customer, Entitlement, Payment, Registration, Session } from '../types/models'
 
 export function useTenantId(): string {
@@ -24,7 +24,9 @@ export function useTenantId(): string {
 // ── queries ─────────────────────────────────────────────────────────────────
 export function useCustomers() {
   const tenantId = useTenantId()
+  const canViewCustomers = useCan('customers')
   return useQuery({
+    enabled: canViewCustomers,
     queryKey: ['customers', tenantId],
     queryFn: async () => {
       const snap = await getDocs(
@@ -51,9 +53,10 @@ export function filterCustomers(customers: Customer[], q: string): Customer[] {
 
 export function useCustomerPayments(customerId: string | null) {
   const tenantId = useTenantId()
+  const canViewPayments = useCan('payments')
   return useQuery({
     queryKey: ['payments', tenantId, 'byCustomer', customerId],
-    enabled: !!customerId,
+    enabled: !!customerId && canViewPayments,
     queryFn: async () => {
       const snap = await getDocs(
         query(
@@ -69,9 +72,10 @@ export function useCustomerPayments(customerId: string | null) {
 
 export function useCustomerEntitlements(customerId: string | null) {
   const tenantId = useTenantId()
+  const canViewPayments = useCan('payments')
   return useQuery({
     queryKey: ['entitlements', tenantId, customerId],
-    enabled: !!customerId,
+    enabled: !!customerId && canViewPayments,
     queryFn: async () => {
       const snap = await getDocs(
         query(
@@ -93,9 +97,10 @@ export interface RegistrationHistoryRow {
  *  its session (for title + real class date) and ordered by class date desc. */
 export function useCustomerRegistrations(customerId: string | null) {
   const tenantId = useTenantId()
+  const canViewCalendar = useCan('calendar')
   return useQuery({
     queryKey: ['registrations', tenantId, 'byCustomer', customerId],
-    enabled: !!customerId,
+    enabled: !!customerId && canViewCalendar,
     queryFn: async (): Promise<RegistrationHistoryRow[]> => {
       const snap = await getDocs(
         query(

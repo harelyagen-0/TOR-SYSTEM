@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "emulators": "npm --prefix functions run build && firebase emulators:start --project studio-os-demo",
     "seed": "node scripts/seed.mjs",
+    "verify:rules": "node scripts/rules-verify.mjs",
     "typecheck": "tsc -b"
   },
   "dependencies": {

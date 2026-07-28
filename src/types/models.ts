@@ -6,6 +6,7 @@
  * timezone from tenant config.
  */
 import type { Timestamp } from 'firebase/firestore'
+import type { Permissions, StaffRole } from '../auth/permissions'
 
 // ── tenant ──────────────────────────────────────────────────────────────────
 export interface TenantTheme {
@@ -21,6 +22,22 @@ export interface ClassType {
   color: string
 }
 
+/** Studio-wide business rules, editable by the owner in Settings. */
+export interface TenantPolicies {
+  /** hours before a class starts after which a cancellation is still charged */
+  cancellationWindowHours: number
+  /** first hour shown in the calendar week grid (stretched by actual content) */
+  dayStartHour: number
+  /** last hour shown in the calendar week grid */
+  dayEndHour: number
+}
+
+export const DEFAULT_POLICIES: TenantPolicies = {
+  cancellationWindowHours: 12,
+  dayStartHour: 7,
+  dayEndHour: 22,
+}
+
 export interface TenantConfig {
   id: string
   name: string
@@ -31,11 +48,41 @@ export interface TenantConfig {
   theme: TenantTheme
   classTypes: ClassType[]
   accountant?: { name: string; email: string }
+  policies?: TenantPolicies
+  /**
+   * Provider credentials — vendor-managed, deliberately NOT writable from the
+   * settings UI (the tenant doc is readable by every signed-in operator, and
+   * the integration flavour is still [OPEN] per the spec).
+   */
   integrations?: {
     grow?: Record<string, unknown>
     invoicing?: Record<string, unknown>
     whatsapp?: Record<string, unknown>
   }
+}
+
+// ── staff (operators who can log in) ────────────────────────────────────────
+/**
+ * One document per Firebase Auth user, doc id = the uid. The `onStaffWritten`
+ * function mirrors `role` + `permissions` into custom claims, which is what
+ * firestore.rules actually enforces — this doc is the editable source of truth,
+ * the claim is the enforcement copy.
+ */
+export interface StaffMember {
+  id: string // = Firebase Auth uid
+  firstName: string
+  lastName: string
+  email: string
+  phone?: string
+  role: StaffRole
+  permissions: Permissions
+  active: boolean
+  /** optional link to an Instructor record — a teacher who also logs in */
+  instructorId?: string | null
+  /** bumped after claims sync; the client watches it to refresh its ID token */
+  claimsUpdatedAt?: Timestamp
+  createdAt: Timestamp
+  createdBy: string
 }
 
 // ── customers ───────────────────────────────────────────────────────────────

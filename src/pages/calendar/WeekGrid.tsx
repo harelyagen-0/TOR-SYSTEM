@@ -4,6 +4,7 @@ import { fmt, he } from '../../locale/he'
 import { ConfirmDialog } from '../../components/ui'
 import { useTenant } from '../../tenant/TenantProvider'
 import { useCancelSession, useInstructors } from '../../data/calendar'
+import { DEFAULT_POLICIES } from '../../types/models'
 import type { Session } from '../../types/models'
 
 const HOUR_PX = 44
@@ -27,7 +28,8 @@ export function WeekGrid({
   weekStart: string
   sessions: Session[]
   onTapSession: (s: Session) => void
-  onTapSlot: (slot: SlotTap) => void
+  /** omitted when the operator may not create sessions */
+  onTapSlot?: (slot: SlotTap) => void
 }) {
   const tenant = useTenant()
   const tz = tenant.timezone
@@ -51,10 +53,11 @@ export function WeekGrid({
     [sessions],
   )
 
-  // visible hour range: 07:00–22:00, stretched by actual content
+  // visible hour range from the studio's policy (Settings → כללי עסק),
+  // still stretched by actual content so a class outside it is never hidden
   const [dayStartHour, dayEndHour] = useMemo(() => {
-    let min = 7
-    let max = 22
+    let min = tenant.policies?.dayStartHour ?? DEFAULT_POLICIES.dayStartHour
+    let max = tenant.policies?.dayEndHour ?? DEFAULT_POLICIES.dayEndHour
     for (const s of active) {
       const p = tzParts(s.startAt.toDate(), tz)
       const e = tzParts(s.endAt.toDate(), tz)
@@ -62,7 +65,7 @@ export function WeekGrid({
       max = Math.max(max, e.hour + (e.minute > 0 ? 1 : 0))
     }
     return [min, max]
-  }, [active, tz])
+  }, [active, tz, tenant.policies])
   const gridHeight = (dayEndHour - dayStartHour) * HOUR_PX
 
   const byDay = useMemo(() => {
@@ -87,7 +90,7 @@ export function WeekGrid({
     const rounded = Math.round(totalMinutes / 30) * 30
     const hh = String(Math.floor(rounded / 60)).padStart(2, '0')
     const mm = String(rounded % 60).padStart(2, '0')
-    onTapSlot({ date, time: `${hh}:${mm}` })
+    onTapSlot?.({ date, time: `${hh}:${mm}` })
   }
 
   return (

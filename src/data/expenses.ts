@@ -4,11 +4,14 @@ import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage
 import { storage } from '../lib/firebase'
 import { rawCol, tenantCol } from './db'
 import { useTenantId } from './customers'
+import { useCan } from '../auth/AuthProvider'
 import type { Expense, PaymentMethod } from '../types/models'
 
 export function useExpenses() {
   const tenantId = useTenantId()
+  const enabled = useCan('finance')
   return useQuery({
+    enabled,
     queryKey: ['expenses', tenantId],
     queryFn: async () => {
       const snap = await getDocs(

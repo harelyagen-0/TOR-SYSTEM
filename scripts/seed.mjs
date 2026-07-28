@@ -17,6 +17,23 @@ process.env.FIREBASE_AUTH_EMULATOR_HOST ??= '127.0.0.1:9099'
 const TENANT_ID = 'demo-yoga'
 const TZ = 'Asia/Jerusalem'
 const OPERATOR = { email: 'owner@demo.test', password: 'demo1234' }
+/** second login so the permission gating is exercisable by hand */
+const STAFF_MEMBER = { email: 'staff@demo.test', password: 'demo1234' }
+
+// Role presets — MUST mirror src/auth/permissions.ts and
+// functions/src/permissions.ts (separate packages, no shared import).
+const CLAIM_KEYS = {
+  payments: 'pay', customers: 'cus', calendar: 'cal',
+  analytics: 'ana', finance: 'fin', settings: 'set',
+}
+const LEVEL_VALUES = { none: 0, view: 1, edit: 2 }
+const ROLE_PRESETS = {
+  owner: { payments: 'edit', customers: 'edit', calendar: 'edit', analytics: 'edit', finance: 'edit', settings: 'edit' },
+  manager: { payments: 'edit', customers: 'edit', calendar: 'edit', analytics: 'view', finance: 'view', settings: 'none' },
+  staff: { payments: 'none', customers: 'view', calendar: 'edit', analytics: 'none', finance: 'none', settings: 'none' },
+}
+const encodePermissions = (perms) =>
+  Object.fromEntries(Object.entries(CLAIM_KEYS).map(([area, key]) => [key, LEVEL_VALUES[perms[area]] ?? 0]))
 
 initializeApp({ projectId: 'studio-os-demo' })
 const auth = getAuth()
@@ -67,7 +84,8 @@ const col = (name) => db.collection('tenants').doc(TENANT_ID).collection(name)
 async function wipeTenant() {
   const names = ['customers', 'products', 'payments', 'invoices', 'entitlements',
     'subscriptions', 'promoCodes', 'expenses', 'instructors', 'classTemplates',
-    'recurrences', 'sessions', 'registrations', 'ledger', 'reports', 'counters']
+    'recurrences', 'sessions', 'registrations', 'ledger', 'reports', 'counters',
+    'staff']
   for (const n of names) {
     const snap = await col(n).get()
     if (snap.empty) continue
@@ -77,18 +95,43 @@ async function wipeTenant() {
   }
 }
 
-async function main() {
-  // ── operator user + tenant claim ──────────────────────────────────────────
+/** Creates (or reuses) an Auth user and stamps the tenant + role claims. */
+async function ensureOperator({ email, password }, role) {
   let user
   try {
-    user = await auth.getUserByEmail(OPERATOR.email)
+    user = await auth.getUserByEmail(email)
+    await auth.updateUser(user.uid, { password, disabled: false })
   } catch {
-    user = await auth.createUser({ email: OPERATOR.email, password: OPERATOR.password })
+    user = await auth.createUser({ email, password })
   }
-  await auth.setCustomUserClaims(user.uid, { tenantId: TENANT_ID })
-  const uid = user.uid
+  await auth.setCustomUserClaims(user.uid, {
+    tenantId: TENANT_ID,
+    role,
+    perms: encodePermissions(ROLE_PRESETS[role]),
+  })
+  return user.uid
+}
+
+async function main() {
+  // ── operator users + tenant/role claims ───────────────────────────────────
+  // The claim is what firestore.rules enforces; the staff doc below is the
+  // editable source of truth that onStaffWritten mirrors back into the claim.
+  const uid = await ensureOperator(OPERATOR, 'owner')
+  const staffUid = await ensureOperator(STAFF_MEMBER, 'staff')
 
   await wipeTenant()
+
+  // ── staff ─────────────────────────────────────────────────────────────────
+  await col('staff').doc(uid).set({
+    firstName: 'גל', lastName: 'ברק', email: OPERATOR.email, phone: '050-1112233',
+    role: 'owner', permissions: ROLE_PRESETS.owner, active: true,
+    instructorId: 'inst-gal', createdAt: ts(daysAgo(120)), createdBy: uid,
+  })
+  await col('staff').doc(staffUid).set({
+    firstName: 'נועה', lastName: 'שגב', email: STAFF_MEMBER.email, phone: '052-4445566',
+    role: 'staff', permissions: ROLE_PRESETS.staff, active: true,
+    instructorId: 'inst-noa', createdAt: ts(daysAgo(60)), createdBy: uid,
+  })
 
   // ── tenant config ─────────────────────────────────────────────────────────
   await db.collection('tenants').doc(TENANT_ID).set({
@@ -104,6 +147,9 @@ async function main() {
       { id: 'meditation', labelHe: 'מדיטציה', color: '#10b981' },
     ],
     accountant: { name: 'רו״ח רות אלון', email: 'cpa@example.co.il' },
+    // business rules the app reads: the cancellation window decides
+    // Registration.lateCancel, the day range bounds the calendar week grid
+    policies: { cancellationWindowHours: 12, dayStartHour: 7, dayEndHour: 22 },
     integrations: { grow: null, invoicing: null, whatsapp: null },
   })
 
@@ -500,8 +546,9 @@ async function main() {
   })
 
   console.log('Seed complete.')
-  console.log(`  tenant:   ${TENANT_ID}`)
-  console.log(`  operator: ${OPERATOR.email} / ${OPERATOR.password}`)
+  console.log(`  tenant: ${TENANT_ID}`)
+  console.log(`  owner:  ${OPERATOR.email} / ${OPERATOR.password}   (full access)`)
+  console.log(`  staff:  ${STAFF_MEMBER.email} / ${STAFF_MEMBER.password}   (calendar only; customers read-only)`)
 }
 
 main().then(() => process.exit(0)).catch((err) => { console.error(err); process.exit(1) })

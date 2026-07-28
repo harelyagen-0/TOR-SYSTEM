@@ -1,46 +1,142 @@
 rules_version = '2';
 
-// Multi-tenant isolation: an operator may touch ONLY their own tenant, proven
-// by the `tenantId` custom claim on the auth token — never by a client-supplied
-// id. Ledger, entitlements and reports are written exclusively by Cloud
-// Functions (Admin SDK bypasses rules), so clients get read-only access there.
+// Multi-tenant isolation + per-area staff permissions.
+//
+// Two claims carry all authority, both set exclusively by Cloud Functions
+// (functions/src/staff.ts) and never by a client:
+//   tenantId — which studio this operator belongs to
+//   perms    — { pay, cus, cal, ana, fin, set } → 0 none / 1 view / 2 edit
+//
+// Levels are numeric so they can be compared ordinally; a string comparison
+// would sort 'edit' before 'view' and silently invert every check.
+//
+// A token with a tenantId but no perms map (issued before roles existed) gets
+// NOTHING — lvl() returns 0. Re-run `npm run seed` and log in again.
+//
+// Ledger, invoices and reports are written exclusively by Cloud Functions
+// (Admin SDK bypasses rules), so clients stay read-only there. The staff
+// collection is likewise write-denied: staff docs drive the claims, so a
+// client that could write one could grant itself anything.
 service cloud.firestore {
   match /databases/{database}/documents {
 
     match /tenants/{tenantId} {
-      function isOperator() {
+      function signedIn() {
         return request.auth != null && request.auth.token.tenantId == tenantId;
       }
+      // 0 when unauthenticated, or when the token predates the perms claim
+      function lvl(area) {
+        return signedIn() && 'perms' in request.auth.token
+          ? request.auth.token.perms.get(area, 0)
+          : 0;
+      }
+      function canView(area) { return lvl(area) >= 1; }
+      function canEdit(area) { return lvl(area) >= 2; }
 
-      // tenant config: readable by its operators; edited out-of-band (vendor)
-      allow read: if isOperator();
-      allow write: if false;
+      // ── tenant config ─────────────────────────────────────────────────────
+      // readable by every operator (theme + timezone drive the whole UI);
+      // writable from the settings page, allowlisted keys only.
+      // `integrations` is deliberately absent: it holds provider credentials
+      // and the doc is readable tenant-wide.
+      allow read: if signedIn();
+      allow update: if canEdit('set')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+             'name', 'logoUrl', 'timezone', 'currency', 'locale',
+             'theme', 'classTypes', 'accountant', 'policies'
+           ]);
+      allow create, delete: if false;
 
-      // function-owned collections — client read-only
-      match /ledger/{docId} {
-        allow read: if isOperator();
+      // ── staff ─────────────────────────────────────────────────────────────
+      // A member may always read their OWN doc even without settings access —
+      // the client watches claimsUpdatedAt there to refresh its ID token.
+      // All writes go through the owner-gated callables.
+      match /staff/{uid} {
+        allow read: if canView('set') || (signedIn() && request.auth.uid == uid);
         allow write: if false;
       }
+
+      // ── payments area ─────────────────────────────────────────────────────
+      match /payments/{docId} {
+        allow read: if canView('pay');
+        allow write: if canEdit('pay');
+      }
+      match /products/{docId} {
+        allow read: if canView('pay');
+        allow write: if canEdit('pay');
+      }
+      match /promoCodes/{docId} {
+        allow read: if canView('pay');
+        allow write: if canEdit('pay');
+      }
+      match /subscriptions/{docId} {
+        allow read: if canView('pay');
+        allow write: if canEdit('pay');
+      }
+      // function-owned: invoices are issued server-side
+      match /invoices/{docId} {
+        allow read: if canView('pay');
+        allow write: if false;
+      }
+      // punch-card deduction semantics are [OPEN] (spec Q5); until decided,
+      // operators may update `remaining`/`status` but not create or delete.
       match /entitlements/{docId} {
-        allow read: if isOperator();
-        // punch-card deduction semantics are [OPEN] (spec Q5); until decided,
-        // operators may update `remaining`/`status` but not create or delete.
-        allow update: if isOperator();
+        allow read: if canView('pay');
+        allow update: if canEdit('pay');
         allow create, delete: if false;
       }
-      match /reports/{docId} {
-        allow read: if isOperator();
+
+      // ── customers area ────────────────────────────────────────────────────
+      match /customers/{docId} {
+        allow read: if canView('cus');
+        allow write: if canEdit('cus');
+      }
+
+      // ── calendar area ─────────────────────────────────────────────────────
+      match /sessions/{docId} {
+        allow read: if canView('cal');
+        allow write: if canEdit('cal');
+      }
+      match /registrations/{docId} {
+        allow read: if canView('cal');
+        allow write: if canEdit('cal');
+      }
+      match /classTemplates/{docId} {
+        allow read: if canView('cal');
+        allow write: if canEdit('cal');
+      }
+      match /recurrences/{docId} {
+        allow read: if canView('cal');
+        allow write: if canEdit('cal');
+      }
+      match /instructors/{docId} {
+        allow read: if canView('cal');
+        allow write: if canEdit('cal');
+      }
+
+      // ── finance area (the accountant surface) ─────────────────────────────
+      match /expenses/{docId} {
+        allow read: if canView('fin');
+        allow write: if canEdit('fin');
+      }
+      // function-owned: the ledger and monthly reports are posted server-side
+      match /ledger/{docId} {
+        allow read: if canView('fin');
         allow write: if false;
       }
-      match /invoices/{docId} {
-        allow read: if isOperator();
+      match /reports/{docId} {
+        allow read: if canView('fin');
         allow write: if false;
       }
 
-      // everything else inside the tenant: full operator access
-      match /{collection}/{docId} {
-        allow read, write: if isOperator();
+      // ── counters ──────────────────────────────────────────────────────────
+      // counters/customers is allocated client-side inside the publicId
+      // transaction; counters/invoices is written by the Admin SDK.
+      match /counters/{docId} {
+        allow read: if signedIn();
+        allow write: if canEdit('cus') || canEdit('pay');
       }
+
+      // anything not matched above inside the tenant is denied by default
     }
 
     // nothing outside /tenants is reachable

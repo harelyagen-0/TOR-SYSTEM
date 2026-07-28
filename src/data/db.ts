@@ -29,6 +29,7 @@ export type CollectionName =
   | 'ledger'
   | 'reports'
   | 'counters'
+  | 'staff'
 
 function converter<T extends { id: string }>(): FirestoreDataConverter<T> {
   return {

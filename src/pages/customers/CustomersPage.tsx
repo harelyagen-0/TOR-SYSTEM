@@ -13,6 +13,7 @@ import {
   Sheet,
 } from '../../components/ui'
 import { fmt, he } from '../../locale/he'
+import { useCan } from '../../auth/AuthProvider'
 import { formatMoney, formatShortDate } from '../../lib/format'
 import { useTenant } from '../../tenant/TenantProvider'
 import {
@@ -32,6 +33,7 @@ export function CustomersPage() {
   const [view, setView] = useState<ViewMode>('all')
   const [filterOpen, setFilterOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  const canEdit = useCan('customers', 'edit')
   const [profileId, setProfileId] = useState<string | null>(null)
 
   // deep links: /customers?action=add (Home) · ?view=subscribers (Payments)
@@ -61,16 +63,18 @@ export function CustomersPage() {
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
-        <button
-          type="button"
-          aria-label={he.customers.addTitle}
-          onClick={() => setAddOpen(true)}
-          className="grid size-12 shrink-0 place-items-center rounded-field bg-primary text-on-primary"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="size-5" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            aria-label={he.customers.addTitle}
+            onClick={() => setAddOpen(true)}
+            className="grid size-12 shrink-0 place-items-center rounded-field bg-primary text-on-primary"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="size-5" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+        )}
         <button
           type="button"
           aria-label={he.customers.filter}

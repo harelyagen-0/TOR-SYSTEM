@@ -7,6 +7,7 @@ import { useTenant } from '../../tenant/TenantProvider'
 import { useInstructors, useSessionsForDay } from '../../data/calendar'
 import { useMetrics } from '../../metrics/useMetrics'
 import { SessionSheet } from '../calendar/SessionSheet'
+import { useAuth } from '../../auth/AuthProvider'
 import type { Session } from '../../types/models'
 
 /**
@@ -17,6 +18,7 @@ import type { Session } from '../../types/models'
 export function HomePage() {
   const tenant = useTenant()
   const navigate = useNavigate()
+  const { can } = useAuth()
   const today = dateKey(new Date(), tenant.timezone)
   const sessions = useSessionsForDay(today)
   const instructors = useInstructors()
@@ -31,20 +33,32 @@ export function HomePage() {
 
   const todays = (sessions.data ?? []).filter((s) => s.status === 'scheduled')
 
+  const canCollect = can('payments', 'edit')
+  const canAddCustomer = can('customers', 'edit')
+  const canAddSession = can('calendar', 'edit')
+  const canAddExpense = can('finance', 'edit')
+  const canSeeCalendar = can('calendar', 'view')
+  const canSeeAnalytics = can('analytics', 'view')
+
   return (
     <div className="flex flex-col gap-5">
-      {/* 1 · quick actions — the fourth trio is [OPEN]; spec suggestions used */}
-      <section>
-        <SectionTitle>{he.home.quickActions}</SectionTitle>
-        <div className="grid grid-cols-2 gap-3">
-          <QuickAction primary label={he.home.qaCollect} onClick={() => navigate('/payments?action=collect')} icon={<CardIcon />} />
-          <QuickAction label={he.home.qaAddCustomer} onClick={() => navigate('/customers?action=add')} icon={<PersonPlusIcon />} />
-          <QuickAction label={he.home.qaAddSession} onClick={() => navigate('/calendar?action=add')} icon={<CalendarPlusIcon />} />
-          <QuickAction label={he.home.qaAddExpense} onClick={() => navigate('/payments?action=expense')} icon={<ReceiptIcon />} />
-        </div>
-      </section>
+      {/* 1 · quick actions — the fourth trio is [OPEN]; spec suggestions used.
+          Each is hidden unless the operator may actually perform it, so the
+          grid shrinks rather than offering doors that refuse to open. */}
+      {(canCollect || canAddCustomer || canAddSession || canAddExpense) && (
+        <section>
+          <SectionTitle>{he.home.quickActions}</SectionTitle>
+          <div className="grid grid-cols-2 gap-3">
+            {canCollect && <QuickAction primary label={he.home.qaCollect} onClick={() => navigate('/payments?action=collect')} icon={<CardIcon />} />}
+            {canAddCustomer && <QuickAction label={he.home.qaAddCustomer} onClick={() => navigate('/customers?action=add')} icon={<PersonPlusIcon />} />}
+            {canAddSession && <QuickAction label={he.home.qaAddSession} onClick={() => navigate('/calendar?action=add')} icon={<CalendarPlusIcon />} />}
+            {canAddExpense && <QuickAction label={he.home.qaAddExpense} onClick={() => navigate('/payments?action=expense')} icon={<ReceiptIcon />} />}
+          </div>
+        </section>
+      )}
 
-      {/* 2 · today's schedule */}
+      {/* 2 · today's schedule — reads sessions, so it needs calendar access */}
+      {canSeeCalendar && (
       <section>
         <SectionTitle aside={he.common.today}>{he.home.todayTitle}</SectionTitle>
         {sessions.isLoading ? (
@@ -88,21 +102,24 @@ export function HomePage() {
           </Card>
         )}
       </section>
+      )}
 
       {/* 3 · four analytics cards → analytics page */}
-      <section>
-        <SectionTitle>{he.home.kpiTitle}</SectionTitle>
-        <div className="grid grid-cols-2 gap-3">
-          {metrics.map(({ def, result, isLoading }) => (
-            <StatCard
-              key={def.id}
-              label={def.label}
-              value={isLoading ? '…' : result?.value ?? '—'}
-              onClick={() => navigate('/analytics')}
-            />
-          ))}
-        </div>
-      </section>
+      {canSeeAnalytics && (
+        <section>
+          <SectionTitle>{he.home.kpiTitle}</SectionTitle>
+          <div className="grid grid-cols-2 gap-3">
+            {metrics.map(({ def, result, isLoading }) => (
+              <StatCard
+                key={def.id}
+                label={def.label}
+                value={isLoading ? '…' : result?.value ?? '—'}
+                onClick={() => navigate('/analytics')}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       <SessionSheet session={openSession} onClose={() => setOpenSession(null)} />
     </div>

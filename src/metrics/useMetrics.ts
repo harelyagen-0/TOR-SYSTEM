@@ -10,14 +10,19 @@ export interface MetricCardData {
 }
 
 export function useMetrics(ids?: string[]): MetricCardData[] {
-  const { tenantId } = useAuth()
+  const { tenantId, can } = useAuth()
   const tenant = useTenant()
   const defs = ids
     ? metricRegistry.filter((m) => ids.includes(m.id))
     : metricRegistry
 
+  // metrics read across payments/customers/sessions; without analytics access
+  // the queries would only earn a permission error from the SDK
+  const enabled = can('analytics', 'view')
+
   const results = useQueries({
     queries: defs.map((def) => ({
+      enabled,
       queryKey: ['metric', tenantId, def.id],
       queryFn: () =>
         def.compute({

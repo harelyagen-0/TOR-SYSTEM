@@ -4,6 +4,7 @@ import { Button, Loading } from '../../components/ui'
 import { fmt, he } from '../../locale/he'
 import { addDaysKey, weekRangeLabel, weekStartKey } from '../../lib/format'
 import { useTenant } from '../../tenant/TenantProvider'
+import { useCan } from '../../auth/AuthProvider'
 import { useSessionsForWeek } from '../../data/calendar'
 import { WeekGrid, type SlotTap } from './WeekGrid'
 import { SessionSheet } from './SessionSheet'
@@ -30,6 +31,7 @@ export function CalendarPage() {
 
   const currentWeek = weekStartKey(new Date(), tenant.timezone)
   const [params, setParams] = useSearchParams()
+  const canEdit = useCan('calendar', 'edit')
 
   // deep link from Home: /calendar?action=add
   useEffect(() => {
@@ -85,16 +87,18 @@ export function CalendarPage() {
             }}
           />
         </label>
-        <button
-          type="button"
-          aria-label={he.calendar.addSession}
-          onClick={() => { setSlot(null); setAddOpen(true) }}
-          className="grid size-11 shrink-0 place-items-center rounded-field bg-primary text-on-primary"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="size-5" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            aria-label={he.calendar.addSession}
+            onClick={() => { setSlot(null); setAddOpen(true) }}
+            className="grid size-11 shrink-0 place-items-center rounded-field bg-primary text-on-primary"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="size-5" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {sessions.isLoading ? (
@@ -104,15 +108,17 @@ export function CalendarPage() {
           weekStart={weekStart}
           sessions={sessions.data ?? []}
           onTapSession={setOpenSession}
-          onTapSlot={(s) => { setSlot(s); setAddOpen(true) }}
+          onTapSlot={canEdit ? (s) => { setSlot(s); setAddOpen(true) } : undefined}
         />
       )}
 
       {/* bottom-of-page management buttons (spec §10) */}
-      <div className="grid grid-cols-2 gap-3">
-        <Button variant="ghost" onClick={() => setTemplatesOpen(true)}>{he.calendar.manageTemplates}</Button>
-        <Button variant="ghost" onClick={() => setInstructorsOpen(true)}>{he.calendar.manageInstructors}</Button>
-      </div>
+      {canEdit && (
+        <div className="grid grid-cols-2 gap-3">
+          <Button variant="ghost" onClick={() => setTemplatesOpen(true)}>{he.calendar.manageTemplates}</Button>
+          <Button variant="ghost" onClick={() => setInstructorsOpen(true)}>{he.calendar.manageInstructors}</Button>
+        </div>
+      )}
 
       <SessionSheet session={openSession} onClose={() => setOpenSession(null)} />
       <AddSessionSheet open={addOpen} slot={slot} onClose={() => setAddOpen(false)} />

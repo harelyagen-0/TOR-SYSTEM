@@ -19,6 +19,8 @@ import { rawCol, tenantCol } from './db'
 import { useTenantId } from './customers'
 import { addDaysKey, dateKey, tzParts, zonedTimeToUtc } from '../lib/format'
 import { useTenant } from '../tenant/TenantProvider'
+import { useCan } from '../auth/AuthProvider'
+import { DEFAULT_POLICIES } from '../types/models'
 import type {
   ClassTemplate,
   Customer,
@@ -30,10 +32,16 @@ import type {
 } from '../types/models'
 
 // ── reads ───────────────────────────────────────────────────────────────────
+// Each read is gated on the caller's calendar permission. Without this the
+// query still fires for an operator who can't read the collection, and the
+// Firestore SDK logs a permission error — noise in the console and a failure
+// in the cdp-verify harness, which counts error-level log entries.
 export function useSessionsForWeek(weekStart: string) {
   const tenantId = useTenantId()
   const tenant = useTenant()
+  const enabled = useCan('calendar')
   return useQuery({
+    enabled,
     queryKey: ['sessions', tenantId, weekStart],
     queryFn: async () => {
       const startAt = zonedTimeToUtc(weekStart, '00:00', tenant.timezone)
@@ -55,7 +63,9 @@ export function useSessionsForWeek(weekStart: string) {
 export function useSessionsForDay(ymd: string) {
   const tenantId = useTenantId()
   const tenant = useTenant()
+  const enabled = useCan('calendar')
   return useQuery({
+    enabled,
     queryKey: ['sessions', tenantId, 'day', ymd],
     queryFn: async () => {
       const startAt = zonedTimeToUtc(ymd, '00:00', tenant.timezone)
@@ -75,7 +85,9 @@ export function useSessionsForDay(ymd: string) {
 
 export function useTemplates() {
   const tenantId = useTenantId()
+  const enabled = useCan('calendar')
   return useQuery({
+    enabled,
     queryKey: ['classTemplates', tenantId],
     queryFn: async () => {
       const snap = await getDocs(
@@ -88,7 +100,9 @@ export function useTemplates() {
 
 export function useInstructors() {
   const tenantId = useTenantId()
+  const enabled = useCan('calendar')
   return useQuery({
+    enabled,
     queryKey: ['instructors', tenantId],
     queryFn: async () => {
       const snap = await getDocs(
@@ -229,19 +243,37 @@ export function useCancelSession() {
 
 // ── attendance ──────────────────────────────────────────────────────────────
 /** Punch-card auto-deduction on attendance is [OPEN — spec Q5]; only the
- *  registration status + denormalised customer stats move here. */
+ *  registration status + denormalised customer stats move here.
+ *
+ *  A cancellation additionally stamps `lateCancel` from the studio's
+ *  cancellation window (Settings → כללי עסק): inside the window the seat is
+ *  still charged, which is what CustomerProfileSheet renders as ביטול באיחור. */
 export function useMarkAttendance() {
   const tenantId = useTenantId()
+  const tenant = useTenant()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({
       registration,
       status,
+      session,
     }: {
       registration: Registration
       status: RegistrationStatus
+      /** the class being cancelled — needed to measure the notice given */
+      session?: Session | null
     }) => {
-      await updateDoc(doc(rawCol(tenantId, 'registrations'), registration.id), { status })
+      const windowHours =
+        tenant.policies?.cancellationWindowHours ?? DEFAULT_POLICIES.cancellationWindowHours
+      const lateCancel =
+        status === 'cancelled' && session
+          ? session.startAt.toMillis() - Date.now() < windowHours * 3_600_000
+          : undefined
+
+      await updateDoc(doc(rawCol(tenantId, 'registrations'), registration.id), {
+        status,
+        ...(lateCancel === undefined ? {} : { lateCancel }),
+      })
       const wasAttended = registration.status === 'attended'
       const nowAttended = status === 'attended'
       if (wasAttended !== nowAttended) {

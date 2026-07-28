@@ -10,12 +10,15 @@ import {
 } from 'firebase/firestore'
 import { rawCol, tenantCol } from './db'
 import { useTenantId } from './customers'
+import { useCan } from '../auth/AuthProvider'
 import { he } from '../locale/he'
 import type { PromoCode } from '../types/models'
 
 export function usePromoCodes() {
   const tenantId = useTenantId()
+  const enabled = useCan('payments')
   return useQuery({
+    enabled,
     queryKey: ['promoCodes', tenantId],
     queryFn: async () => {
       const snap = await getDocs(tenantCol<PromoCode>(tenantId, 'promoCodes'))
