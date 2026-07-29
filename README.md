@@ -52,6 +52,35 @@ Firestore actually enforces. It writes scratch docs into `demo-yoga` — re-run
 `cdp-verify` defaults to the Windows Chrome path; set `CHROME_PATH` to run it
 elsewhere.
 
+## Offline preview (`preview/`)
+
+Builds the real app into one self-contained HTML file that runs with no
+backend — for sharing a clickable demo.
+
+```bash
+npm run emulators && npm run seed   # once, to have data to capture
+npm run preview:dump                # emulator state → preview/seed-data.json
+npm run preview:build               # → preview-dist/artifact.html
+npm run preview:verify              # drives it in Chrome, asserts the gating
+```
+
+`vite.preview.config.ts` aliases `firebase/{app,auth,firestore,functions,storage}`
+to in-memory mocks in `preview/mocks/`, so **no file under `src/` changes** — the
+real components, the real `useCan` gating and the real callable guards run
+against seeded data held in the tab. `react-router-dom` is shimmed to the hash
+router because an artifact is not served from the origin root.
+
+Two things to keep in mind when touching this:
+
+- The Vite root must stay the **repo root**. Tailwind v4 scans for utilities
+  relative to it, so rooting at `preview/` yields a near-empty stylesheet and
+  the app renders unstyled — while DOM-only assertions still pass. That is why
+  `preview:verify` checks computed style (`rounded-card` → 14px, the nav's five
+  columns), not just element counts.
+- It cannot demonstrate `firestore.rules` — there is no server. The preview
+  shows the UI gating that mirrors the rules; enforcement is proven by
+  `npm run verify:rules`.
+
 ## Architecture notes
 
 - **Tenancy**: everything under `tenants/{tenantId}/…`; the operator's

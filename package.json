@@ -11,6 +11,9 @@
     "emulators": "npm --prefix functions run build && firebase emulators:start --project studio-os-demo",
     "seed": "node scripts/seed.mjs",
     "verify:rules": "node scripts/rules-verify.mjs",
+    "preview:dump": "node preview/dump-seed.mjs",
+    "preview:build": "vite build --config vite.preview.config.ts && node preview/package-artifact.mjs",
+    "preview:verify": "node preview/verify-artifact.mjs preview-dist/artifact.html",
     "typecheck": "tsc -b"
   },
   "dependencies": {
