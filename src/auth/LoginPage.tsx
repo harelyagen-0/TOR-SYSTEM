@@ -1,22 +1,26 @@
 import { useState, type FormEvent } from 'react'
 import { he } from '../locale/he'
 import { useAuth } from './AuthProvider'
+import { describeError } from '../lib/errors'
 
 export function LoginPage() {
   const { signIn } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState(false)
+  // the REASON, not just the fact — an unseeded or unreachable emulator
+  // must not look the same as a mistyped password
+  const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     setBusy(true)
-    setError(false)
+    setError(null)
     try {
       await signIn(email, password)
-    } catch {
-      setError(true)
+    } catch (err) {
+      console.error('[studio-os] sign-in failed', err)
+      setError(describeError(err))
     } finally {
       setBusy(false)
     }
@@ -56,7 +60,7 @@ export function LoginPage() {
           />
         </label>
 
-        {error && <p className="mt-3 text-sm font-medium text-crit">{he.auth.signInError}</p>}
+        {error && <p role="alert" className="mt-3 text-sm font-medium text-crit">{error}</p>}
 
         <button
           type="submit"

@@ -20,6 +20,17 @@ export function describeError(err: unknown): string {
   const code = codeOf(err).replace(/^(firestore|auth|functions)\//, '')
 
   switch (code) {
+    // sign-in: each cause needs a different action, so they must not collapse
+    // into one "login failed" — that hides an unseeded or unreachable emulator
+    case 'invalid-credential':
+    case 'wrong-password':
+      return he.errors.badCredentials
+    case 'user-not-found':
+      return he.errors.noSuchUser
+    case 'invalid-email':
+      return he.errors.badEmail
+    case 'too-many-requests':
+      return he.errors.tooManyAttempts
     case 'unavailable':
     case 'deadline-exceeded':
     case 'network-request-failed':
