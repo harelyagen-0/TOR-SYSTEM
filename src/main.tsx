@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
+import './lib/installPrompt' // capture the PWA install prompt before first paint
 import App from './App'
 import { AuthProvider } from './auth/AuthProvider'
 

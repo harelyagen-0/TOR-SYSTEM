@@ -9,6 +9,7 @@ import { PaymentsPage } from './pages/payments/PaymentsPage'
 import { AnalyticsPage } from './pages/analytics/AnalyticsPage'
 import { CalendarPage } from './pages/calendar/CalendarPage'
 import { CustomersPage } from './pages/customers/CustomersPage'
+import { SettingsPage } from './pages/settings/SettingsPage'
 
 const router = createBrowserRouter([
   {
@@ -19,6 +20,7 @@ const router = createBrowserRouter([
       { path: '/analytics', element: <AnalyticsPage /> },
       { path: '/calendar', element: <CalendarPage /> },
       { path: '/customers', element: <CustomersPage /> },
+      { path: '/settings', element: <SettingsPage /> },
     ],
   },
 ])

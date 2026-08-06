@@ -383,5 +383,73 @@ export const he = {
     subtitle: 'נתוני הסטודיו',
   },
 
+  settings: {
+    title: 'הגדרות',
+    open: 'פתיחת הגדרות',
+    saved: 'הנתונים נשמרו',
+    saveSection: 'שמירת השינויים',
+
+    // studio profile
+    profileTitle: 'פרופיל הסטודיו',
+    studioName: 'שם הסטודיו',
+    logoUrl: 'לוגו',
+    logoHint: 'כתובת תמונה (URL) — מוצגת בכותרת ובקבלות',
+    logoPreview: 'תצוגת לוגו',
+    noLogo: 'אין לוגו',
+
+    // region & language
+    regionTitle: 'אזור ושפה',
+    regionHint: 'משפיע על שעות, תאריכים וסכומים בכל המערכת.',
+    timezone: 'אזור זמן',
+    currency: 'מטבע',
+    locale: 'שפת תצוגה',
+
+    // appearance
+    appearanceTitle: 'מראה וצבעים',
+    appearanceHint: 'ארבעה צבעים; כל שאר הגוונים נגזרים מהם אוטומטית.',
+    colorPrimary: 'צבע ראשי',
+    colorAccent: 'צבע הדגשה',
+    colorSurface: 'רקע כרטיסים',
+    colorText: 'צבע טקסט',
+    themePreview: 'תצוגה מקדימה',
+    themePreviewBody: 'כך ייראו כרטיס וכפתור בסטודיו.',
+    themePreviewButton: 'כפתור לדוגמה',
+
+    // class types
+    classTypesTitle: 'סוגי שיעורים',
+    classTypesHint: 'הסוגים שמופיעים ביומן, בתבניות ואצל המדריכים.',
+    classTypeLabel: 'שם הסוג',
+    classTypeColor: 'צבע',
+    addClassType: 'הוספת סוג',
+    classTypesEmpty: 'אין עדיין סוגי שיעורים',
+    removeClassType: 'הסרה',
+    removeClassTypeConfirm: 'להסיר את סוג השיעור?',
+    removeClassTypeDetail: 'שיעורים קיימים מהסוג הזה יישארו, אך יאבדו את הצבע והשיוך.',
+
+    // accountant
+    accountantTitle: 'רואה חשבון',
+    accountantHint: 'הדוח החודשי נשלח לכתובת הזו בתחילת כל חודש.',
+    accountantName: 'שם',
+    accountantEmail: 'אימייל',
+
+    // integrations
+    integrationsTitle: 'חיבורים',
+    integrationsHint: 'ההגדרה נעשית מול הספק — כאן מוצג הסטטוס בלבד.',
+    integrationGrow: 'Grow — סליקת אשראי',
+    integrationInvoicing: 'הפקת חשבוניות',
+    integrationWhatsApp: 'וואטסאפ',
+    connected: 'מחובר',
+    notConnected: 'לא מחובר',
+
+    // account
+    accountTitle: 'חשבון',
+    signedInAs: 'מחוברים כ־',
+    installTitle: 'התקנת האפליקציה',
+    installHint: 'הוספה למסך הבית להפעלה כאפליקציה עצמאית.',
+    install: 'התקנה',
+    installed: 'האפליקציה כבר מותקנת',
+    signOutConfirm: 'להתנתק מהמערכת?',
+  },
+
   weekdays: ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'],
 } as const
