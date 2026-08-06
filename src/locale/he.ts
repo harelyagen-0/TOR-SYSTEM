@@ -397,6 +397,28 @@ export const he = {
     subtitle: 'נתוני הסטודיו',
   },
 
+  settings: {
+    title: 'הגדרות הסטודיו',
+    open: 'הגדרות',
+    studioName: 'שם הסטודיו',
+    theme: 'צבעי המותג',
+    themePrimary: 'ראשי',
+    themeAccent: 'הדגשה',
+    themeSurface: 'רקע כרטיסים',
+    themeText: 'טקסט',
+    accountant: 'רואה חשבון',
+    accountantName: 'שם',
+    accountantEmail: 'אימייל',
+    policy: 'מדיניות ביטול',
+    lateCancelHours: 'חלון ביטול (שעות)',
+    lateCancelCharges: 'ביטול מאוחר מחויב',
+    classTypes: 'סוגי שיעורים',
+    classTypeLabel: 'שם',
+    addClassType: 'הוספת סוג שיעור',
+    signOut: 'יציאה מהחשבון',
+    saved: 'ההגדרות נשמרו',
+  },
+
   // user-facing error messages (mapped from Firebase error codes)
   errors: {
     generic: 'משהו השתבש. נסו שוב.',

@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { fmt, he } from '../locale/he'
 import { formatHeaderDate } from '../lib/format'
 import { useToday } from '../lib/useToday'
 import { useTenant } from '../tenant/TenantProvider'
+import { SettingsSheet } from '../pages/settings/SettingsSheet'
 
 const TITLES: Record<string, string> = {
   '/payments': he.nav.payments,
@@ -20,6 +22,7 @@ export function Header() {
   const { pathname } = useLocation()
   const title = TITLES[pathname] ?? fmt(he.header.hello, { name: tenant.name })
   const today = useToday(tenant.timezone)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   return (
     <header
@@ -27,7 +30,12 @@ export function Header() {
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div className="mx-auto flex min-h-14 w-full max-w-xl items-center gap-3 px-4 py-2">
-        <div className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-field border border-line bg-page">
+        <button
+          type="button"
+          aria-label={he.settings.open}
+          onClick={() => setSettingsOpen(true)}
+          className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-field border border-line bg-page"
+        >
           {tenant.logoUrl ? (
             <img src={tenant.logoUrl} alt={tenant.name} className="size-full object-cover" />
           ) : (
@@ -35,7 +43,7 @@ export function Header() {
               {tenant.name.trim().charAt(0)}
             </span>
           )}
-        </div>
+        </button>
 
         <h1 className="min-w-0 flex-1 truncate text-center text-base font-bold">{title}</h1>
 
@@ -43,6 +51,7 @@ export function Header() {
           {formatHeaderDate(today, tenant.timezone, tenant.locale)}
         </p>
       </div>
+      <SettingsSheet open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </header>
   )
 }
