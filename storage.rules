@@ -1,13 +1,39 @@
 rules_version = '2';
 
 // Tenant-scoped storage: logos and expense receipts live under the tenant's
-// own prefix, gated by the same tenantId custom claim as Firestore.
+// own prefix, gated by the same tenantId custom claim as Firestore. Uploads are
+// bounded in size and restricted to images/PDF so a receipt input can't be used
+// to stash arbitrary large files.
 service firebase.storage {
   match /b/{bucket}/o {
-    match /tenants/{tenantId}/{allPaths=**} {
-      allow read, write: if request.auth != null
-        && request.auth.token.tenantId == tenantId;
+    function isTenant(tenantId) {
+      return request.auth != null && request.auth.token.tenantId == tenantId;
     }
+
+    // receipts: images or PDF, max 10 MB.
+    match /tenants/{tenantId}/receipts/{file} {
+      allow read: if isTenant(tenantId);
+      allow write: if isTenant(tenantId)
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*|application/pdf');
+      allow delete: if isTenant(tenantId);
+    }
+
+    // logos: images only, max 5 MB.
+    match /tenants/{tenantId}/logo/{file} {
+      allow read: if isTenant(tenantId);
+      allow write: if isTenant(tenantId)
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isTenant(tenantId);
+    }
+
+    // anything else under a tenant prefix: tenant-scoped read, no write.
+    match /tenants/{tenantId}/{allPaths=**} {
+      allow read: if isTenant(tenantId);
+      allow write: if false;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

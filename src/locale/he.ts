@@ -383,5 +383,21 @@ export const he = {
     subtitle: 'נתוני הסטודיו',
   },
 
+  // user-facing error messages (mapped from Firebase error codes)
+  errors: {
+    generic: 'משהו השתבש. נסו שוב.',
+    offline: 'אין חיבור לאינטרנט. הפעולה תישמר ותישלח כשהחיבור יחזור.',
+    permission: 'אין הרשאה לבצע את הפעולה.',
+    unauthenticated: 'תוקף ההתחברות פג. התחברו מחדש.',
+    notFound: 'הפריט לא נמצא.',
+    conflict: 'הפעולה כבר בוצעה. רעננו את המסך.',
+    paymentFailed: 'החיוב נכשל. הכרטיס לא חויב.',
+    tryAgain: 'נסו שוב',
+    dismiss: 'סגירה',
+    savedOffline: 'נשמר. יישלח כשהחיבור יחזור.',
+    crashed: 'המסך נתקל בתקלה.',
+    reload: 'טעינה מחדש',
+  },
+
   weekdays: ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'],
 } as const
