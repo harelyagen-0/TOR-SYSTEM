@@ -4,7 +4,7 @@ import { he } from '../../../locale/he'
 import { formatMoney, formatShortDate } from '../../../lib/format'
 import { useTenant } from '../../../tenant/TenantProvider'
 import { filterCustomers, useCustomerPayments, useCustomers } from '../../../data/customers'
-import { useRecordRefund } from '../../../data/payments'
+import { useMarkPaid, useRecordRefund } from '../../../data/payments'
 import { PaymentStatusPill } from '../../customers/CustomerProfileSheet'
 import type { Customer, Payment } from '../../../types/models'
 
@@ -20,6 +20,7 @@ export function HistorySheet({ open, onClose }: { open: boolean; onClose: () => 
   const [customer, setCustomer] = useState<Customer | null>(null)
   const payments = useCustomerPayments(customer?.id ?? null)
   const refund = useRecordRefund()
+  const markPaid = useMarkPaid()
   const [refundTarget, setRefundTarget] = useState<Payment | null>(null)
 
   const matches = useMemo(
@@ -91,6 +92,17 @@ export function HistorySheet({ open, onClose }: { open: boolean; onClose: () => 
                       <span className="font-semibold">
                         {he.payments.invoice} <bdi className="tnum">{p.invoiceId.replace(/^inv-/, '')}</bdi>
                       </span>
+                    )}
+                    {/* a pending (unfinished link / cash owed) payment can be marked paid */}
+                    {p.status === 'pending' && (
+                      <Button
+                        variant="ghost"
+                        className="ms-auto !min-h-9 px-3 text-ok"
+                        disabled={markPaid.isPending}
+                        onClick={() => markPaid.mutate(p.id)}
+                      >
+                        {he.payments.markPaid}
+                      </Button>
                     )}
                     {/* refund only a positive, paid charge — pending/refunded rows don't offer it */}
                     {p.status === 'paid' && p.amount > 0 && (

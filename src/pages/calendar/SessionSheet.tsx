@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, ConfirmDialog, Field, Input, Loading, Select, Sheet } from '../../components/ui'
+import { Button, ConfirmDialog, Field, Input, Loading, Select, Sheet, SearchInput } from '../../components/ui'
 import { fmt, he } from '../../locale/he'
 import { formatMoney, formatShortDate, formatTime } from '../../lib/format'
 import { fromAgorot, toAgorot } from '../../lib/money'
 import { useTenant } from '../../tenant/TenantProvider'
 import {
+  useBookCustomer,
+  useCancelBooking,
   useCancelSession,
   useInstructors,
   useMarkAttendance,
   useSessionRegistrants,
   useUpdateSession,
 } from '../../data/calendar'
-import type { Session } from '../../types/models'
+import { filterCustomers, useCustomers } from '../../data/customers'
+import type { Customer, Session } from '../../types/models'
 
 /** §10 — tap a block: registrant list, mark attendance, edit, cancel
  *  (with the Hebrew confirm; editing never touches the series). */
@@ -19,13 +22,41 @@ export function SessionSheet({ session, onClose }: { session: Session | null; on
   const tenant = useTenant()
   const registrants = useSessionRegistrants(session?.id ?? null)
   const instructors = useInstructors()
+  const customers = useCustomers()
   const update = useUpdateSession()
   const cancel = useCancelSession()
   const mark = useMarkAttendance()
+  const book = useBookCustomer()
+  const cancelBooking = useCancelBooking()
 
   const [editing, setEditing] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [form, setForm] = useState({ time: '', instructorId: '', capacity: '', price: '', durationMinutes: '' })
+
+  // add-registrant panel
+  const [adding, setAdding] = useState(false)
+  const [bookQuery, setBookQuery] = useState('')
+  const [coverage, setCoverage] = useState<'auto' | 'cash' | 'card'>('auto')
+  const bookMatches = useMemo(
+    () => filterCustomers(customers.data ?? [], bookQuery).slice(0, 5),
+    [customers.data, bookQuery],
+  )
+  const registeredIds = useMemo(
+    () => new Set((registrants.data ?? []).filter((r) => r.registration.status !== 'cancelled').map((r) => r.registration.customerId)),
+    [registrants.data],
+  )
+  const full = !!session && session.registeredCount >= session.capacity
+
+  async function bookCustomer(c: Customer) {
+    if (!session) return
+    await book.mutateAsync({
+      sessionId: session.id,
+      customerId: c.id,
+      singleMethod: coverage === 'auto' ? undefined : coverage,
+    })
+    setBookQuery('')
+    setAdding(false)
+  }
 
   useEffect(() => {
     if (session) {
@@ -38,6 +69,9 @@ export function SessionSheet({ session, onClose }: { session: Session | null; on
         durationMinutes: String(dur),
       })
       setEditing(false)
+      setAdding(false)
+      setBookQuery('')
+      setCoverage('auto')
     }
   }, [session, tenant.timezone])
 
@@ -86,18 +120,67 @@ export function SessionSheet({ session, onClose }: { session: Session | null; on
 
           {/* registrants + attendance */}
           <section>
-            <h3 className="mb-2 border-b border-hair pb-1.5 text-sm font-bold text-muted">
-              {he.calendar.registrants}
-            </h3>
+            <div className="mb-2 flex items-center justify-between border-b border-hair pb-1.5">
+              <h3 className="text-sm font-bold text-muted">{he.calendar.registrants}</h3>
+              {!full && (
+                <button type="button" className="text-xs font-bold text-accent" onClick={() => setAdding((v) => !v)}>
+                  {adding ? he.common.cancel : `+ ${he.calendar.addRegistrant}`}
+                </button>
+              )}
+            </div>
+
+            {adding && (
+              <div className="mb-3 flex flex-col gap-2 rounded-field border border-line bg-page/50 p-3">
+                <div className="flex flex-col gap-1.5" role="radiogroup" aria-label={he.calendar.coverage}>
+                  {([
+                    ['auto', he.calendar.coverageAuto],
+                    ['cash', he.calendar.coverageSingleCash],
+                    ['card', he.calendar.coverageSingleCard],
+                  ] as const).map(([v, label]) => (
+                    <label key={v} className="flex items-center gap-2 text-xs font-semibold">
+                      <input type="radio" name="coverage" className="accent-[var(--t-accent)]" checked={coverage === v} onChange={() => setCoverage(v)} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <SearchInput
+                  placeholder={he.calendar.bookSearch}
+                  value={bookQuery}
+                  onChange={(e) => setBookQuery(e.target.value)}
+                />
+                {bookQuery.trim() && (
+                  <div className="flex flex-col overflow-hidden rounded-field border border-line bg-surface">
+                    {bookMatches.filter((c) => !registeredIds.has(c.id)).map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        disabled={book.isPending}
+                        onClick={() => bookCustomer(c)}
+                        className="flex min-h-11 items-center justify-between gap-2 border-b border-hair px-3 text-start text-sm last:border-0 disabled:opacity-50"
+                      >
+                        <span className="truncate font-semibold">{c.firstName} {c.lastName}</span>
+                        <span className="shrink-0 text-xs text-faint"><bdi>{c.phone}</bdi></span>
+                      </button>
+                    ))}
+                    {bookMatches.filter((c) => !registeredIds.has(c.id)).length === 0 && (
+                      <p className="px-3 py-3 text-center text-xs text-faint">{he.common.noResults}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {registrants.isLoading ? (
               <Loading />
-            ) : (registrants.data ?? []).length === 0 ? (
+            ) : (registrants.data ?? []).filter((r) => r.registration.status !== 'cancelled').length === 0 ? (
               <p className="text-sm text-faint">{he.calendar.noRegistrants}</p>
             ) : (
               <div className="flex flex-col">
-                {(registrants.data ?? []).map(({ registration, customer }) => (
+                {(registrants.data ?? [])
+                  .filter((r) => r.registration.status !== 'cancelled')
+                  .map(({ registration, customer }) => (
                   <div key={registration.id} className="flex items-center justify-between gap-2 border-b border-hair py-2 last:border-0">
-                    <span className="min-w-0 truncate text-sm font-semibold">
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">
                       {customer ? `${customer.firstName} ${customer.lastName}` : '—'}
                     </span>
                     <div className="flex shrink-0 gap-1">
@@ -123,6 +206,14 @@ export function SessionSheet({ session, onClose }: { session: Session | null; on
                           })
                         }
                       />
+                      <button
+                        type="button"
+                        aria-label={he.calendar.removeRegistrant}
+                        onClick={() => cancelBooking.mutate({ registrationId: registration.id })}
+                        className="grid size-9 place-items-center rounded-field border border-line text-faint"
+                      >
+                        ×
+                      </button>
                     </div>
                   </div>
                 ))}

@@ -29,6 +29,11 @@ export function isOfflineError(err: unknown): boolean {
 export function errorToHebrew(err: unknown): string {
   const code = codeOf(err)
   if (isOfflineError(err)) return he.errors.offline
+  // booking flow signals (callable HttpsError messages)
+  const msg = (err as { message?: string })?.message ?? ''
+  if (msg.includes('already booked')) return he.calendar.alreadyBooked
+  if (msg.includes('session full')) return he.calendar.sessionFull
+  if (msg.includes('payment-required')) return he.calendar.paymentRequiredHint
   if (code.includes('permission-denied')) return he.errors.permission
   if (code.includes('unauthenticated')) return he.errors.unauthenticated
   if (code.includes('not-found')) return he.errors.notFound
