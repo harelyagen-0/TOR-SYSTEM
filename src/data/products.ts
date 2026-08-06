@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { addDoc, getDocs, orderBy, query, serverTimestamp, where } from 'firebase/firestore'
+import { addDoc, doc, getDocs, orderBy, query, serverTimestamp, updateDoc, where } from 'firebase/firestore'
 import { rawCol, tenantCol } from './db'
 import { useTenantId } from './customers'
 import type { Product, ProductKind } from '../types/models'
@@ -45,6 +45,22 @@ export function useCreateProduct() {
         active: true,
         createdAt: serverTimestamp(),
       })
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products', tenantId] }),
+  })
+}
+
+/**
+ * Edits a product's fields or archives it (`active: false`). Products are never
+ * hard-deleted — historical payments snapshot the name/price, so archiving is
+ * safe and deletion would orphan the record.
+ */
+export function useUpdateProduct() {
+  const tenantId = useTenantId()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...fields }: { id: string } & Partial<Omit<Product, 'id' | 'createdAt'>>) => {
+      await updateDoc(doc(rawCol(tenantId, 'products'), id), fields)
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['products', tenantId] }),
   })

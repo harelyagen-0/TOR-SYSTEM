@@ -184,6 +184,9 @@ export const he = {
     punchCount: 'מספר כניסות',
     intervalDays: 'תדירות חיוב (ימים)',
     saved: 'המוצר נשמר',
+    existing: 'מוצרים קיימים',
+    archive: 'העברה לארכיון',
+    restore: 'שחזור',
   },
 
   promo: {
@@ -345,6 +348,8 @@ export const he = {
     cancelConfirm: 'למחוק את השיעור?',
     deleteClass: 'מחיקת שיעור',
     deleteTemplate: 'מחיקת תבנית',
+    deactivateInstructor: 'השבתת מדריך/ה',
+    activateInstructor: 'הפעלת מדריך/ה',
     templateInUse: 'לא ניתן למחוק — התבנית משמשת סדרה חוזרת פעילה. סיימו את הסדרה קודם.',
     deleteClassConfirm: 'אתה בטוח שאתה רוצה למחוק את השיעור?',
     cancelled: 'בוטל',

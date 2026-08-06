@@ -385,6 +385,19 @@ export function useSaveInstructor() {
   })
 }
 
+/** Activate / deactivate an instructor (a departed instructor is hidden from
+ *  every picker but never deleted — sessions reference them). */
+export function useSetInstructorActive() {
+  const tenantId = useTenantId()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      await updateDoc(doc(rawCol(tenantId, 'instructors'), id), { active })
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['instructors', tenantId] }),
+  })
+}
+
 // ── recurrences ─────────────────────────────────────────────────────────────
 export interface RecurrenceInput {
   template: ClassTemplate

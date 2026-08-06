@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Button, EmptyState, Field, Input, Loading, Sheet } from '../../components/ui'
 import { he } from '../../locale/he'
 import { useTenant } from '../../tenant/TenantProvider'
-import { useInstructors, useSaveInstructor } from '../../data/calendar'
+import { useInstructors, useSaveInstructor, useSetInstructorActive } from '../../data/calendar'
 import type { Instructor } from '../../types/models'
 
 /**
@@ -15,8 +15,11 @@ export function InstructorsSheet({ open, onClose }: { open: boolean; onClose: ()
   const tenant = useTenant()
   const instructors = useInstructors()
   const save = useSaveInstructor()
+  const setActive = useSetInstructorActive()
 
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
+  const editingInstructor =
+    editingId && editingId !== 'new' ? (instructors.data ?? []).find((i) => i.id === editingId) : undefined
   const empty = { firstName: '', lastName: '', experience: '', phone: '', allowed: [] as string[] }
   const [form, setForm] = useState(empty)
 
@@ -134,6 +137,18 @@ export function InstructorsSheet({ open, onClose }: { open: boolean; onClose: ()
             <Button variant="ghost" onClick={() => setEditingId(null)}>{he.common.cancel}</Button>
             <Button type="submit" disabled={save.isPending}>{he.common.save}</Button>
           </div>
+          {/* deactivate / reactivate an existing instructor (never deleted —
+              sessions reference them; an inactive one just leaves every picker) */}
+          {editingInstructor && (
+            <Button
+              variant="ghost"
+              className={editingInstructor.active ? 'text-crit' : 'text-accent'}
+              disabled={setActive.isPending}
+              onClick={() => setActive.mutate({ id: editingInstructor.id, active: !editingInstructor.active })}
+            >
+              {editingInstructor.active ? he.calendar.deactivateInstructor : he.calendar.activateInstructor}
+            </Button>
+          )}
         </form>
       )}
     </Sheet>
