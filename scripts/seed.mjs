@@ -60,6 +60,8 @@ function addDaysKey(ymd, n) {
 }
 const monthKeyOf = (d) => dateKeyOf(d).slice(0, 7)
 const ts = (date) => Timestamp.fromDate(date)
+// money is stored as integer AGOROT everywhere (mirrors src/lib/money.ts)
+const ag = (shekels) => Math.round(shekels * 100)
 const daysAgo = (n, hm = '10:00') => zonedTimeToUtc(addDaysKey(dateKeyOf(new Date()), -n), hm)
 
 const col = (name) => db.collection('tenants').doc(TENANT_ID).collection(name)
@@ -104,6 +106,8 @@ async function main() {
       { id: 'meditation', labelHe: 'מדיטציה', color: '#10b981' },
     ],
     accountant: { name: 'רו״ח רות אלון', email: 'cpa@example.co.il' },
+    vat: { rate: 0.18, inclusive: true, registered: true },
+    policy: { lateCancelHours: 6, lateCancelCharges: true },
     integrations: { grow: null, invoicing: null, whatsapp: null },
   })
 
@@ -117,10 +121,10 @@ async function main() {
 
   // ── products ──────────────────────────────────────────────────────────────
   const products = [
-    { id: 'prod-single', name: 'כניסה בודדת ליוגה', description: 'שיעור אחד, כל סוגי היוגה', price: 50, kind: 'single', active: true },
-    { id: 'prod-punch10', name: 'כרטיסייה 10 כניסות', description: 'בתוקף לשנה מרגע הרכישה', price: 450, kind: 'punchCard', punchCount: 10, active: true },
-    { id: 'prod-sub-yoga', name: 'מנוי חודשי — יוגה', description: 'ללא הגבלת כניסות לשיעורי יוגה', price: 300, kind: 'subscription', intervalDays: 30, active: true },
-    { id: 'prod-sub-studio', name: 'מנוי חודשי — סטודיו + פילאטיס', description: 'כל השיעורים כולל פילאטיס מכשירים', price: 380, kind: 'subscription', intervalDays: 30, active: true },
+    { id: 'prod-single', name: 'כניסה בודדת ליוגה', description: 'שיעור אחד, כל סוגי היוגה', price: ag(50), kind: 'single', active: true },
+    { id: 'prod-punch10', name: 'כרטיסייה 10 כניסות', description: 'בתוקף לשנה מרגע הרכישה', price: ag(450), kind: 'punchCard', punchCount: 10, validityDays: 365, active: true },
+    { id: 'prod-sub-yoga', name: 'מנוי חודשי — יוגה', description: 'ללא הגבלת כניסות לשיעורי יוגה', price: ag(300), kind: 'subscription', intervalDays: 30, active: true },
+    { id: 'prod-sub-studio', name: 'מנוי חודשי — סטודיו + פילאטיס', description: 'כל השיעורים כולל פילאטיס מכשירים', price: ag(380), kind: 'subscription', intervalDays: 30, active: true },
   ]
   for (const p of products) { const { id, ...rest } = p; await col('products').doc(id).set({ ...rest, createdAt: ts(daysAgo(90)) }) }
   const prodById = Object.fromEntries(products.map((p) => [p.id, p]))
@@ -166,12 +170,12 @@ async function main() {
 
   // ── templates + recurrences ───────────────────────────────────────────────
   const templates = [
-    { id: 'tpl-vinyasa', title: 'ויניאסה בוקר', classTypeId: 'yoga', defaultInstructorId: 'inst-gal', capacity: 12, durationMinutes: 60, price: 50, defaultStartTime: '08:00', room: 'אולם ראשי' },
-    { id: 'tpl-pilates', title: 'פילאטיס מכשירים', classTypeId: 'pilates', defaultInstructorId: 'inst-noa', capacity: 8, durationMinutes: 55, price: 70, defaultStartTime: '10:00', room: 'חדר מכשירים' },
-    { id: 'tpl-evening', title: 'יוגה ערב', classTypeId: 'yoga', defaultInstructorId: 'inst-omer', capacity: 14, durationMinutes: 75, price: 50, defaultStartTime: '18:30', room: 'אולם ראשי' },
+    { id: 'tpl-vinyasa', title: 'ויניאסה בוקר', classTypeId: 'yoga', defaultInstructorId: 'inst-gal', capacity: 12, durationMinutes: 60, price: ag(50), defaultStartTime: '08:00', room: 'אולם ראשי' },
+    { id: 'tpl-pilates', title: 'פילאטיס מכשירים', classTypeId: 'pilates', defaultInstructorId: 'inst-noa', capacity: 8, durationMinutes: 55, price: ag(70), defaultStartTime: '10:00', room: 'חדר מכשירים' },
+    { id: 'tpl-evening', title: 'יוגה ערב', classTypeId: 'yoga', defaultInstructorId: 'inst-omer', capacity: 14, durationMinutes: 75, price: ag(50), defaultStartTime: '18:30', room: 'אולם ראשי' },
     // meditation is NOT covered by the yoga subscription — only the full studio
     // subscription grants entry; everyone else pays a single entry
-    { id: 'tpl-medit', title: 'מדיטציה מודרכת', classTypeId: 'meditation', defaultInstructorId: 'inst-gal', capacity: 16, durationMinutes: 45, price: 40, defaultStartTime: '19:45', room: 'אולם קטן', allowedProductIds: ['prod-sub-studio'] },
+    { id: 'tpl-medit', title: 'מדיטציה מודרכת', classTypeId: 'meditation', defaultInstructorId: 'inst-gal', capacity: 16, durationMinutes: 45, price: ag(40), defaultStartTime: '19:45', room: 'אולם קטן', allowedProductIds: ['prod-sub-studio'] },
   ]
   for (const t of templates) { const { id, ...rest } = t; await col('classTemplates').doc(id).set(rest) }
 
@@ -288,6 +292,7 @@ async function main() {
     for (const [j, row] of custRegs[c.id].entries()) {
       await col('registrations').doc(`reg-${c.id}-${j}`).set({
         sessionId: row.session.id, customerId: c.id, status: row.status,
+        attendedAt: row.status === 'attended' ? ts(row.session.start) : null,
         lateCancel: row.lateCancel ?? null,
         coverage: row.coverage ?? null,
         sourceEntitlementId: row.coverage?.kind === 'punchCard' ? (row.coverage.entId ?? null) : null,
@@ -403,17 +408,17 @@ async function main() {
   // one walk-in single (no customer profile — shows in payments/analytics)
   await col('payments').doc('pay-walkin-1').set({
     customerId: null, walkInName: 'אורחת של נועה', productId: 'prod-single',
-    productSnapshot: { name: 'כניסה בודדת ליוגה', price: 50, kind: 'single' },
-    amount: 50, promoCodeId: null, method: 'cash', otherMethodLabel: null,
+    productSnapshot: { name: 'כניסה בודדת ליוגה', price: ag(50), kind: 'single' },
+    amount: ag(50), promoCodeId: null, method: 'cash', otherMethodLabel: null,
     status: 'paid', growTransactionId: null, invoiceId: 'inv-2026-0499',
     refundOfPaymentId: null, createdAt: ts(daysAgo(1, '11:20')), createdBy: uid,
   })
   await col('ledger').doc('led_pay-walkin-1').set({
-    kind: 'payment', amount: 50, description: 'כניסה בודדת ליוגה — אורחת של נועה',
+    kind: 'payment', amount: ag(50), description: 'כניסה בודדת ליוגה — אורחת של נועה',
     refId: 'pay-walkin-1', invoiceId: 'inv-2026-0499', period: monthKeyOf(daysAgo(1)), createdAt: ts(daysAgo(1, '11:20')),
   })
   await col('invoices').doc('inv-2026-0499').set({
-    number: '2026-0499', paymentId: 'pay-walkin-1', amount: 50,
+    number: '2026-0499', paymentId: 'pay-walkin-1', amount: ag(50),
     kind: 'invoice', createdAt: ts(daysAgo(1, '11:20')), fileUrl: null,
   })
 
@@ -431,17 +436,22 @@ async function main() {
     })
   }
   await col('counters').doc('customers').set({ next: publicSeq })
+  // invoice sequence counter (per year) — start above the highest seeded number
+  // so app-issued invoices continue the sequence without colliding
+  await col('counters').doc('invoices_2026').set({ year: 2026, next: 600 })
 
   // ── entitlements + subscriptions born from the paid payments ─────────────
   // cust-2 bought a 10-punch card and has attended 3 → 7 punches remain
   await col('entitlements').doc('ent-1').set({
     customerId: 'cust-2', productId: 'prod-punch10', kind: 'punchCard',
-    remaining: 7, expiresAt: ts(daysAgo(-335)), status: 'active', createdAt: ts(daysAgo(30)),
+    remaining: 7, expiresAt: ts(daysAgo(-335)), status: 'active',
+    sourcePaymentId: 'pay-cust-2-0', createdAt: ts(daysAgo(30)),
   })
   // cust-7's 10-punch card is fully spent (10 punches used across 12 classes)
   await col('entitlements').doc('ent-2').set({
     customerId: 'cust-7', productId: 'prod-punch10', kind: 'punchCard',
-    remaining: 0, expiresAt: ts(daysAgo(-325)), status: 'used', createdAt: ts(daysAgo(40)),
+    remaining: 0, expiresAt: ts(daysAgo(-325)), status: 'used',
+    sourcePaymentId: 'pay-cust-7-0', createdAt: ts(daysAgo(40)),
   })
   const subs = [
     { id: 'sub-1', customerId: 'cust-1', productId: 'prod-sub-yoga', started: 62, next: -28, months: 3, status: 'active' },
@@ -454,7 +464,10 @@ async function main() {
       customerId: s.customerId, productId: s.productId,
       productSnapshot: { name: prod.name, price: prod.price },
       startedAt: ts(daysAgo(s.started)), intervalDays: 30,
-      nextChargeAt: ts(daysAgo(s.next)), endsAt: ts(daysAgo(s.started - s.months * 30)),
+      nextChargeAt: ts(daysAgo(s.next)),
+      endsAt: s.status === 'active' ? null : ts(daysAgo(s.started - s.months * 30)),
+      pausedAt: s.status === 'paused' ? ts(daysAgo(3)) : null,
+      dunningCount: 0,
       status: s.status, growTokenRef: `tok_${s.id}`,
     })
   }
@@ -468,15 +481,15 @@ async function main() {
   // WELCOME20 is valid on a single entry only (a "1-time pass" discount)
   await col('promoCodes').doc('promo-welcome').set({
     code: 'WELCOME20', name: 'ברוכים הבאים', description: '₪20 הנחה על כניסה בודדת',
-    discountKind: 'fixed', value: 20, validUntil: null,
+    discountKind: 'fixed', value: ag(20), validUntil: null,
     audience: 'new', usageLimit: null, usedCount: 4, active: true, productIds: ['prod-single'],
   })
 
   // ── expenses (+ ledger lines) ─────────────────────────────────────────────
   const expenses = [
-    { id: 'exp-1', name: 'מזרנים חדשים', description: '6 מזרני יוגה', amount: 540, when: daysAgo(5), category: 'ציוד' },
-    { id: 'exp-2', name: 'שכירות יולי', description: '', amount: 4200, when: daysAgo(20), category: 'שכירות' },
-    { id: 'exp-3', name: 'ניקיון', description: 'חברת ניקיון — שבועיים', amount: 380, when: daysAgo(8), category: 'תפעול' },
+    { id: 'exp-1', name: 'מזרנים חדשים', description: '6 מזרני יוגה', amount: ag(540), when: daysAgo(5), category: 'ציוד' },
+    { id: 'exp-2', name: 'שכירות יולי', description: '', amount: ag(4200), when: daysAgo(20), category: 'שכירות' },
+    { id: 'exp-3', name: 'ניקיון', description: 'חברת ניקיון — שבועיים', amount: ag(380), when: daysAgo(8), category: 'תפעול' },
   ]
   for (const e of expenses) {
     await col('expenses').doc(e.id).set({
@@ -493,8 +506,8 @@ async function main() {
   const lastMonth = monthKeyOf(daysAgo(35))
   await col('reports').doc(lastMonth).set({
     period: lastMonth,
-    totals: { income: 6180, expenses: 4890, refunds: -90, net: 1200 },
-    lineItems: [],
+    totals: { income: ag(6180), expenses: ag(4890), refunds: ag(-90), net: ag(1200), vatCollected: ag(198) },
+    lineItems: [], version: 1, ledgerCursor: null,
     fileUrl: null,
     sentAt: ts(daysAgo(Math.max(1, tzParts(new Date()).day - 1))),
   })

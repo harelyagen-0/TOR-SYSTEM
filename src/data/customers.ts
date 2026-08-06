@@ -5,12 +5,11 @@ import {
   getDocs,
   orderBy,
   query,
-  runTransaction,
-  serverTimestamp,
   updateDoc,
   where,
 } from 'firebase/firestore'
-import { db } from '../lib/firebase'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../lib/firebase'
 import { rawCol, tenantCol } from './db'
 import { useAuth } from '../auth/AuthProvider'
 import type { Customer, Entitlement, Payment, Registration, Session } from '../types/models'
@@ -137,34 +136,18 @@ export interface NewCustomerInput {
 }
 
 /**
- * Creates a customer with a transactionally-allocated human-readable publicId
- * (C-0001, C-0002, …) from the counters/customers doc.
+ * Creates a customer via the server callable (the client can no longer write
+ * the customers collection or the counter). The human-readable publicId is
+ * allocated transactionally server-side.
  */
 export function useCreateCustomer() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: NewCustomerInput) => {
-      const counterRef = doc(rawCol(tenantId, 'counters'), 'customers')
-      const customerRef = doc(rawCol(tenantId, 'customers'))
-      const publicId = await runTransaction(db, async (tx) => {
-        const counter = await tx.get(counterRef)
-        const next = (counter.data()?.next as number | undefined) ?? 1
-        tx.set(counterRef, { next: next + 1 }, { merge: true })
-        tx.set(customerRef, {
-          firstName: input.firstName,
-          lastName: input.lastName,
-          phone: input.phone,
-          email: input.email ?? '',
-          publicId: `C-${String(next).padStart(4, '0')}`,
-          isWalkIn: false,
-          notes: '',
-          stats: { totalSpent: 0, sessionsAttended: 0, lastVisitAt: null },
-          createdAt: serverTimestamp(),
-        })
-        return `C-${String(next).padStart(4, '0')}`
-      })
-      return { id: customerRef.id, publicId }
+    mutationFn: async (input: NewCustomerInput): Promise<{ id: string; publicId: string }> => {
+      const call = httpsCallable<NewCustomerInput, { id: string; publicId: string }>(functions, 'createCustomer')
+      const res = await call(input)
+      return res.data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['customers', tenantId] }),
   })

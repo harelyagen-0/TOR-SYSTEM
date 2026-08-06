@@ -2,8 +2,11 @@ rules_version = '2';
 
 // Multi-tenant isolation: an operator may touch ONLY their own tenant, proven
 // by the `tenantId` custom claim on the auth token — never by a client-supplied
-// id. Ledger, entitlements and reports are written exclusively by Cloud
-// Functions (Admin SDK bypasses rules), so clients get read-only access there.
+// id. Money-bearing collections (payments, invoices, ledger, entitlements,
+// subscriptions, reports, counters) are written EXCLUSIVELY by Cloud Functions
+// (Admin SDK bypasses rules); clients get read-only or no access there. Where
+// the client used to write directly (payments, customer creation, subscription
+// status, attendance), it now calls a callable — see functions/src/.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -11,35 +14,97 @@ service cloud.firestore {
       function isOperator() {
         return request.auth != null && request.auth.token.tenantId == tenantId;
       }
-
-      // tenant config: readable by its operators; edited out-of-band (vendor)
-      allow read: if isOperator();
-      allow write: if false;
-
-      // function-owned collections — client read-only
-      match /ledger/{docId} {
-        allow read: if isOperator();
-        allow write: if false;
+      // fields the studio may edit about itself; the rest (timezone, currency,
+      // integrations) stay vendor-only because changing them rewrites history.
+      function tenantSelfEditable() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'logoUrl', 'theme', 'classTypes', 'accountant', 'policy']);
       }
-      match /entitlements/{docId} {
+
+      // tenant config: readable by its operators; a bounded set of fields is
+      // self-editable via the settings screen, the rest is vendor-only.
+      allow read: if isOperator();
+      allow update: if isOperator() && tenantSelfEditable();
+      allow create, delete: if false;
+
+      // ── function-owned collections — client read-only ─────────────────────
+      match /ledger/{docId}   { allow read: if isOperator(); allow write: if false; }
+      match /reports/{docId}  { allow read: if isOperator(); allow write: if false; }
+      match /invoices/{docId} { allow read: if isOperator(); allow write: if false; }
+      // invoice/customer sequence counters — only functions may allocate.
+      match /counters/{docId} { allow read: if isOperator(); allow write: if false; }
+      // append-only audit trail written by callables.
+      match /auditLog/{docId} { allow read: if isOperator(); allow write: if false; }
+      // who may operate this tenant (managed by the admin callables).
+      match /operators/{uid}  { allow read: if isOperator(); allow write: if false; }
+      // rate-limit buckets — functions only.
+      match /rateLimits/{id}  { allow read, write: if false; }
+
+      // ── payments — creation, refund and mark-paid are callables ───────────
+      // the ledger line, invoice, entitlement and stats are all derived from
+      // the payment server-side, so the client never writes one directly.
+      match /payments/{docId}      { allow read: if isOperator(); allow write: if false; }
+      match /entitlements/{docId}  { allow read: if isOperator(); allow write: if false; }
+      match /subscriptions/{docId} { allow read: if isOperator(); allow write: if false; }
+      match /registrations/{docId} { allow read: if isOperator(); allow write: if false; }
+
+      // ── operator-managed catalogue + roster ───────────────────────────────
+      // customers are created via a callable (transactional publicId); edits
+      // are direct. Never hard-deleted — anonymisation is a callable.
+      match /customers/{docId} {
         allow read: if isOperator();
-        // punch-card deduction semantics are [OPEN] (spec Q5); until decided,
-        // operators may update `remaining`/`status` but not create or delete.
         allow update: if isOperator();
         allow create, delete: if false;
       }
-      match /reports/{docId} {
+      // products: create + edit + archive; never deleted (payments snapshot them).
+      match /products/{docId} {
         allow read: if isOperator();
-        allow write: if false;
+        allow create, update: if isOperator();
+        allow delete: if false;
       }
-      match /invoices/{docId} {
+      // promo codes: create + edit, but usedCount is function-owned (consumed
+      // inside the createPayment transaction), so the client may never move it.
+      match /promoCodes/{docId} {
         allow read: if isOperator();
-        allow write: if false;
+        allow create: if isOperator() && request.resource.data.usedCount == 0;
+        allow update: if isOperator()
+          && request.resource.data.usedCount == resource.data.usedCount;
+        allow delete: if false;
+      }
+      // expenses feed the ledger on create; immutable afterwards (correct with a
+      // compensating expense, never an edit) so the ledger stays truthful.
+      match /expenses/{docId} {
+        allow read: if isOperator();
+        allow create: if isOperator();
+        allow update, delete: if false;
+      }
+      // instructors: create + edit + active toggle; never deleted.
+      match /instructors/{docId} {
+        allow read: if isOperator();
+        allow create, update: if isOperator();
+        allow delete: if false;
+      }
+      // scheduling config the operator owns directly.
+      match /classTemplates/{docId} {
+        allow read, create, update, delete: if isOperator();
+      }
+      // recurrences: created + edited client-side (immediate materialisation);
+      // ended via `endsOn`, not deleted, so history is preserved.
+      match /recurrences/{docId} {
+        allow read, create, update: if isOperator();
+        allow delete: if false;
+      }
+      // sessions are materialised + edited client-side; registeredCount is only
+      // moved by the booking callable, but a fudged count affects display only
+      // (the capacity guard is server-side), so operator writes are allowed.
+      match /sessions/{docId} {
+        allow read, create, update: if isOperator();
+        allow delete: if false;
       }
 
-      // everything else inside the tenant: full operator access
-      match /{collection}/{docId} {
-        allow read, write: if isOperator();
+      // deny anything not explicitly listed above (new subcollections included).
+      match /{document=**} {
+        allow read, write: if false;
       }
     }
 

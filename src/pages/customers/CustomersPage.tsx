@@ -20,7 +20,7 @@ import {
   useCreateCustomer,
   useCustomers,
 } from '../../data/customers'
-import { useSubscriptions, useUpdateSubscriptionStatus } from '../../data/subscriptions'
+import { useCancelSubscription, usePauseSubscription, useSubscriptions } from '../../data/subscriptions'
 import type { Customer, Subscription } from '../../types/models'
 import { CustomerProfileSheet } from './CustomerProfileSheet'
 
@@ -230,7 +230,8 @@ function SubscriptionsView({
   const tenant = useTenant()
   const customers = useCustomers()
   const subs = useSubscriptions()
-  const update = useUpdateSubscriptionStatus()
+  const pause = usePauseSubscription()
+  const cancelSub = useCancelSubscription()
   const [cancelId, setCancelId] = useState<string | null>(null)
 
   const byId = useMemo(
@@ -260,7 +261,7 @@ function SubscriptionsView({
           tz={tenant.timezone}
           onOpenCustomer={onOpenCustomer}
           onPauseToggle={() =>
-            update.mutate({ id: s.id, status: s.status === 'paused' ? 'active' : 'paused' })
+            pause.mutate({ id: s.id, paused: s.status !== 'paused' })
           }
           onCancel={() => setCancelId(s.id)}
         />
@@ -270,7 +271,7 @@ function SubscriptionsView({
         question={he.customers.subCancelConfirm}
         onNo={() => setCancelId(null)}
         onYes={() => {
-          if (cancelId) update.mutate({ id: cancelId, status: 'cancelled' })
+          if (cancelId) cancelSub.mutate({ id: cancelId })
           setCancelId(null)
         }}
       />

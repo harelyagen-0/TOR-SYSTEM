@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Button, EmptyState, Field, Input, Loading, Select, Sheet } from '../../components/ui'
 import { fmt, he } from '../../locale/he'
 import { dateKey, formatMoney, weekdayName } from '../../lib/format'
+import { fromAgorot, toAgorot } from '../../lib/money'
 import { useTenant } from '../../tenant/TenantProvider'
 import { useCreateRecurrence, useInstructors, useSaveTemplate, useTemplates } from '../../data/calendar'
 import { useProducts } from '../../data/products'
@@ -82,7 +83,7 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
         defaultInstructorId: t.defaultInstructorId ?? '',
         capacity: String(t.capacity),
         durationMinutes: String(t.durationMinutes),
-        price: String(t.price),
+        price: String(fromAgorot(t.price)),
         defaultStartTime: t.defaultStartTime ?? '08:00',
         room: t.room ?? '',
       })
@@ -101,7 +102,7 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
       defaultInstructorId: form.defaultInstructorId || undefined,
       capacity: Number(form.capacity),
       durationMinutes: Number(form.durationMinutes),
-      price: Number(form.price),
+      price: toAgorot(form.price),
       defaultStartTime: form.defaultStartTime,
       room: form.room || undefined,
       allowedProductIds: allowedIds,
@@ -116,7 +117,7 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
           defaultInstructorId: form.defaultInstructorId || undefined,
           capacity: Number(form.capacity),
           durationMinutes: Number(form.durationMinutes),
-          price: Number(form.price),
+          price: toAgorot(form.price),
           defaultStartTime: form.defaultStartTime,
           room: form.room || undefined,
         },

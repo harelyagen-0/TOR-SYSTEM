@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Button, Field, Input, OptionTile, Sheet } from '../../../components/ui'
 import { he } from '../../../locale/he'
 import { useCreateProduct } from '../../../data/products'
+import { toAgorot } from '../../../lib/money'
 import type { ProductKind } from '../../../types/models'
 
 /** §8.2.1 — name, description, price, kind (single / punch card of N /
@@ -20,7 +21,7 @@ export function ProductSheet({ open, onClose }: { open: boolean; onClose: () => 
     await create.mutateAsync({
       name,
       description,
-      price: Number(price),
+      price: toAgorot(price),
       kind,
       punchCount: Number(punchCount) || 10,
       intervalDays: Number(intervalDays) || 30,

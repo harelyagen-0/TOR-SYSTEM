@@ -3,7 +3,6 @@ import {
   addDoc,
   doc,
   getDocs,
-  increment,
   serverTimestamp,
   Timestamp,
   updateDoc,
@@ -79,19 +78,6 @@ export function validatePromo(
       ? Math.round(eligibleSubtotal * (code.value / 100))
       : Math.min(code.value, eligibleSubtotal)
   return { ok: true, promo: code, discountedAmount: Math.max(0, total - discount) }
-}
-
-export function useConsumePromo() {
-  const tenantId = useTenantId()
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (promoId: string) => {
-      await updateDoc(doc(rawCol(tenantId, 'promoCodes'), promoId), {
-        usedCount: increment(1),
-      })
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['promoCodes', tenantId] }),
-  })
 }
 
 export interface NewPromoInput {

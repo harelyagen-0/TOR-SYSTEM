@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button, ConfirmDialog, Field, Input, Loading, Select, Sheet } from '../../components/ui'
 import { fmt, he } from '../../locale/he'
 import { formatMoney, formatShortDate, formatTime } from '../../lib/format'
+import { fromAgorot, toAgorot } from '../../lib/money'
 import { useTenant } from '../../tenant/TenantProvider'
 import {
   useCancelSession,
@@ -33,7 +34,7 @@ export function SessionSheet({ session, onClose }: { session: Session | null; on
         time: formatTime(session.startAt, tenant.timezone, 'en-GB'),
         instructorId: session.instructorId ?? '',
         capacity: String(session.capacity),
-        price: String(session.price),
+        price: String(fromAgorot(session.price)),
         durationMinutes: String(dur),
       })
       setEditing(false)
@@ -151,7 +152,7 @@ export function SessionSheet({ session, onClose }: { session: Session | null; on
                       time: form.time,
                       instructorId: form.instructorId,
                       capacity: Number(form.capacity),
-                      price: Number(form.price),
+                      price: toAgorot(form.price),
                       durationMinutes: Number(form.durationMinutes),
                     },
                   })

@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { doc, getDocs, orderBy, query, updateDoc } from 'firebase/firestore'
-import { rawCol, tenantCol } from './db'
+import { getDocs, orderBy, query } from 'firebase/firestore'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../lib/firebase'
+import { tenantCol } from './db'
 import { useTenantId } from './customers'
-import type { Subscription, SubscriptionStatus } from '../types/models'
+import type { Subscription } from '../types/models'
 
 export function useSubscriptions() {
   const tenantId = useTenantId()
@@ -17,12 +19,30 @@ export function useSubscriptions() {
   })
 }
 
-export function useUpdateSubscriptionStatus() {
+/**
+ * Subscription state transitions go through callables so the billing side
+ * effects are correct: pause records pausedAt, resume pushes nextChargeAt by
+ * the paused duration, cancel stops at the end of the paid period.
+ */
+export function usePauseSubscription() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: SubscriptionStatus }) => {
-      await updateDoc(doc(rawCol(tenantId, 'subscriptions'), id), { status })
+    mutationFn: async ({ id, paused }: { id: string; paused: boolean }) => {
+      const call = httpsCallable(functions, paused ? 'pauseSubscription' : 'resumeSubscription')
+      await call({ id })
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['subscriptions', tenantId] }),
+  })
+}
+
+export function useCancelSubscription() {
+  const tenantId = useTenantId()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, immediate }: { id: string; immediate?: boolean }) => {
+      const call = httpsCallable(functions, 'cancelSubscription')
+      await call({ id, immediate })
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['subscriptions', tenantId] }),
   })

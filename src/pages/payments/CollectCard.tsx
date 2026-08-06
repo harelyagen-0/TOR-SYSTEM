@@ -3,11 +3,11 @@ import { Button, Card, Field, Input, Loading, OptionTile, SearchInput } from '..
 import { fmt, he } from '../../locale/he'
 import { formatMoney } from '../../lib/format'
 import { useTenant } from '../../tenant/TenantProvider'
-import { filterCustomers, useCreateCustomer, useCustomers } from '../../data/customers'
+import { filterCustomers, useCustomers } from '../../data/customers'
 import { useProducts } from '../../data/products'
-import { useConsumePromo, usePromoCodes, validatePromo, type PromoValidation } from '../../data/promoCodes'
+import { usePromoCodes, validatePromo, type PromoValidation } from '../../data/promoCodes'
 import { useCreatePayment, useWatchPayment } from '../../data/payments'
-import { getMessageSender, getPaymentProvider } from '../../integrations'
+import { getMessageSender } from '../../integrations'
 import type { Customer, Product } from '../../types/models'
 
 type WhoMode = 'existing' | 'new' | 'walkIn'
@@ -25,9 +25,7 @@ export function CollectCard() {
   const customers = useCustomers()
   const products = useProducts()
   const promos = usePromoCodes()
-  const createCustomer = useCreateCustomer()
   const createPayment = useCreatePayment()
-  const consumePromo = useConsumePromo()
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [busy, setBusy] = useState(false)
@@ -115,47 +113,29 @@ export function CollectCard() {
     if (cartLines.length === 0 || busy) return
     setBusy(true)
     try {
-      // a NEW customer becomes a real customer record first (spec §8.1)
-      let customerId = who === 'existing' ? customer?.id : undefined
-      if (who === 'new') {
-        const created = await createCustomer.mutateAsync({
-          firstName: newC.firstName,
-          lastName: newC.lastName,
-          phone: newC.phone,
-          email: newC.email,
-        })
-        customerId = created.id
-      }
-
-      const provider = getPaymentProvider(tenant)
-      let status: 'pending' | 'paid' = 'paid'
-      let growTransactionId: string | undefined
-      if (method === 'card') {
-        if (cardMode === 'charge') {
-          const res = await provider.charge(amount, cartSummary)
-          growTransactionId = res.transactionId
-        } else {
-          const res = await provider.createPaymentLink(amount, cartSummary)
-          growTransactionId = res.transactionId
-          setPaymentLink(res.url)
-          status = 'pending' // paid only when the customer completes the Grow form
-        }
-      }
-
-      const id = await createPayment.mutateAsync({
-        customerId,
+      // ONE server call does everything: creates the customer if new, prices
+      // from the product docs, validates + consumes the promo, charges the
+      // card, and issues the invoice/ledger/entitlements — all atomically.
+      const res = await createPayment.mutateAsync({
+        who,
+        customerId: who === 'existing' ? customer?.id : undefined,
+        newCustomer:
+          who === 'new'
+            ? { firstName: newC.firstName, lastName: newC.lastName, phone: newC.phone, email: newC.email }
+            : undefined,
         walkInName: who === 'walkIn' ? walkInName.trim() : undefined,
         items: cartLines,
-        amount,
-        promoCodeId: promoState?.ok ? promoState.promo.id : undefined,
+        promoCode: promoState?.ok ? promoState.promo.code : undefined,
         method,
+        cardMode: method === 'card' ? cardMode : undefined,
         otherMethodLabel: method === 'other' ? otherLabel.trim() : undefined,
-        status,
-        growTransactionId,
       })
-      if (promoState?.ok) await consumePromo.mutateAsync(promoState.promo.id)
-      setPaymentId(id)
+      if (res.paymentUrl) setPaymentLink(res.paymentUrl)
+      setPaymentId(res.paymentId)
       setStep(4)
+    } catch {
+      // the global mutation-error toast already surfaced the failure; stay on
+      // the method step so the operator can retry without re-entering anything.
     } finally {
       setBusy(false)
     }

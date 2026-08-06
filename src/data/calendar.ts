@@ -6,15 +6,15 @@ import {
   doc,
   getDoc,
   getDocs,
-  increment,
   orderBy,
   query,
-  serverTimestamp,
   setDoc,
   Timestamp,
   updateDoc,
   where,
 } from 'firebase/firestore'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../lib/firebase'
 import { rawCol, tenantCol } from './db'
 import { useTenantId } from './customers'
 import { addDaysKey, dateKey, tzParts, zonedTimeToUtc } from '../lib/format'
@@ -227,9 +227,51 @@ export function useCancelSession() {
   })
 }
 
-// ── attendance ──────────────────────────────────────────────────────────────
-/** Punch-card auto-deduction on attendance is [OPEN — spec Q5]; only the
- *  registration status + denormalised customer stats move here. */
+// ── booking + attendance (server callables) ─────────────────────────────────
+/**
+ * Books a customer into a session. The server resolves coverage in priority
+ * order (active subscription → punch card → single paid entry), deducts a punch
+ * where used, guards capacity and prevents double-booking (spec Q5).
+ */
+export function useBookCustomer() {
+  const tenantId = useTenantId()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      sessionId: string
+      customerId: string
+      singleMethod?: 'cash' | 'card' | 'other'
+      otherMethodLabel?: string
+    }) => {
+      const call = httpsCallable(functions, 'bookCustomer')
+      await call(input)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['registrations', tenantId] })
+      qc.invalidateQueries({ queryKey: ['sessions', tenantId] })
+      qc.invalidateQueries({ queryKey: ['entitlements', tenantId] })
+    },
+  })
+}
+
+/** Cancels a booking, refunding the punch unless it's a charged late-cancel. */
+export function useCancelBooking() {
+  const tenantId = useTenantId()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ registrationId, lateCancel }: { registrationId: string; lateCancel?: boolean }) => {
+      const call = httpsCallable(functions, 'cancelBooking')
+      await call({ registrationId, lateCancel })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['registrations', tenantId] })
+      qc.invalidateQueries({ queryKey: ['sessions', tenantId] })
+      qc.invalidateQueries({ queryKey: ['entitlements', tenantId] })
+    },
+  })
+}
+
+/** Marks attendance via callable: stamps attendedAt + moves customer stats. */
 export function useMarkAttendance() {
   const tenantId = useTenantId()
   const qc = useQueryClient()
@@ -241,15 +283,8 @@ export function useMarkAttendance() {
       registration: Registration
       status: RegistrationStatus
     }) => {
-      await updateDoc(doc(rawCol(tenantId, 'registrations'), registration.id), { status })
-      const wasAttended = registration.status === 'attended'
-      const nowAttended = status === 'attended'
-      if (wasAttended !== nowAttended) {
-        await updateDoc(doc(rawCol(tenantId, 'customers'), registration.customerId), {
-          'stats.sessionsAttended': increment(nowAttended ? 1 : -1),
-          ...(nowAttended ? { 'stats.lastVisitAt': serverTimestamp() } : {}),
-        })
-      }
+      const call = httpsCallable(functions, 'markAttendance')
+      await call({ registrationId: registration.id, status })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['registrations', tenantId] })

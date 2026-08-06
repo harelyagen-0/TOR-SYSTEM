@@ -31,6 +31,15 @@ export interface TenantConfig {
   theme: TenantTheme
   classTypes: ClassType[]
   accountant?: { name: string; email: string }
+  /**
+   * VAT (מע"מ) model. Catalogue prices are VAT-INCLUSIVE when `inclusive` is
+   * true (the default). `registered: false` = עוסק פטור, no VAT charged.
+   * `rate` is a fraction (0.18 = 18%) and is snapshotted onto each sale, never
+   * read historically — the rate changes over time.
+   */
+  vat?: { rate: number; inclusive: boolean; registered: boolean }
+  /** Class cancellation policy (spec §10). */
+  policy?: { lateCancelHours: number; lateCancelCharges: boolean }
   integrations?: {
     grow?: Record<string, unknown>
     invoicing?: Record<string, unknown>
@@ -64,10 +73,13 @@ export interface Product {
   id: string
   name: string
   description?: string
+  /** VAT-inclusive price in integer AGOROT (see src/lib/money.ts). */
   price: number
   kind: ProductKind
   /** punchCard only */
   punchCount?: number
+  /** punchCard only — days the pass stays valid from purchase (default 365). */
+  validityDays?: number
   /** subscription only; default 30 */
   intervalDays?: number
   active: boolean
@@ -82,9 +94,20 @@ export type PaymentStatus = 'pending' | 'paid' | 'refunded'
 export interface PaymentItem {
   productId: string
   name: string
-  price: number // unit price at time of sale
+  price: number // unit price at time of sale, in AGOROT
   kind: ProductKind
   quantity: number
+}
+
+/** Server-computed money breakdown of a payment (all AGOROT). Snapshotted so
+ *  historical VAT never shifts when the rate changes. */
+export interface PaymentPricing {
+  subtotalAgorot: number // sum of line prices before discount (gross)
+  discountAgorot: number
+  grossAgorot: number // charged total = subtotal − discount
+  netAgorot: number // VAT-exclusive base
+  vatAgorot: number
+  vatRate: number // fraction, e.g. 0.18; 0 for עוסק פטור
 }
 
 export interface Payment {
@@ -99,7 +122,11 @@ export interface Payment {
   /** the full cart (present for app-created payments); when set it is the
    *  source of truth for what was granted. A single-product sale has one line. */
   items?: PaymentItem[]
-  amount: number // total after discount; negative for refunds
+  amount: number // total after discount, in AGOROT; negative for refunds
+  /** server-computed net/VAT/discount breakdown (absent on legacy docs) */
+  pricing?: PaymentPricing
+  /** how much of this payment has been refunded so far, in AGOROT (partials) */
+  refundedAmount?: number
   promoCodeId?: string
   method: PaymentMethod
   otherMethodLabel?: string
@@ -126,18 +153,22 @@ export interface Entitlement {
 }
 
 // ── subscriptions ───────────────────────────────────────────────────────────
-export type SubscriptionStatus = 'active' | 'paused' | 'cancelled'
+export type SubscriptionStatus = 'active' | 'paused' | 'pastDue' | 'cancelled'
 
 export interface Subscription {
   id: string
   customerId: string
   productId: string
-  productSnapshot: { name: string; price: number }
+  productSnapshot: { name: string; price: number } // price in AGOROT
   startedAt: Timestamp
   intervalDays: number
   nextChargeAt: Timestamp
-  endsAt?: Timestamp
+  /** set while paused, so resume can push nextChargeAt by the paused duration */
+  pausedAt?: Timestamp | null
+  endsAt?: Timestamp | null
   status: SubscriptionStatus
+  /** consecutive failed charges; drives dunning → cancellation */
+  dunningCount?: number
   growTokenRef?: string
 }
 
@@ -257,6 +288,9 @@ export interface Registration {
   sessionId: string
   customerId: string
   status: RegistrationStatus
+  /** set when the class was actually attended — the correct basis for the
+   *  "attended this month" metric (createdAt is when the booking was made) */
+  attendedAt?: Timestamp | null
   /** true when a cancellation fell outside the policy window (still charged) */
   lateCancel?: boolean
   /** how this class was paid for (present once a seat is consumed or charged) */
@@ -272,8 +306,12 @@ export type LedgerLineKind = 'payment' | 'refund' | 'expense'
 export interface LedgerLine {
   id: string
   kind: LedgerLineKind
-  /** positive for income, negative for refunds and expenses */
+  /** positive for income, negative for refunds and expenses, in AGOROT */
   amount: number
+  /** VAT breakdown (AGOROT) for the accountant; absent on expenses w/o VAT */
+  netAgorot?: number
+  vatAgorot?: number
+  vatRate?: number
   description: string
   refId: string // payment / expense doc id
   invoiceId?: string
@@ -284,8 +322,18 @@ export interface LedgerLine {
 export interface MonthlyReport {
   id: string
   period: string // '2026-07'
-  totals: { income: number; expenses: number; refunds: number; net: number }
+  /** all AGOROT; vatCollected is the VAT the studio owes for the period */
+  totals: {
+    income: number
+    expenses: number
+    refunds: number
+    net: number
+    vatCollected?: number
+  }
   lineItems: Array<Omit<LedgerLine, 'id'>>
+  /** immutable version number — a re-send does not recompute (P1-9) */
+  version?: number
+  ledgerCursor?: Timestamp | null
   fileUrl?: string
   sentAt?: Timestamp
 }

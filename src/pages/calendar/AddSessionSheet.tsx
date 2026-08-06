@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button, Field, Input, Loading, OptionTile, Select, Sheet } from '../../components/ui'
 import { fmt, he } from '../../locale/he'
 import { dateKey } from '../../lib/format'
+import { fromAgorot, toAgorot } from '../../lib/money'
 import { useTenant } from '../../tenant/TenantProvider'
 import {
   useCreateRecurrence,
@@ -90,7 +91,7 @@ export function AddSessionSheet({
       time: slot?.time ?? t.defaultStartTime ?? f.time,
       durationMinutes: String(t.durationMinutes),
       capacity: String(t.capacity),
-      price: String(t.price),
+      price: String(fromAgorot(t.price)),
     }))
     setMode('template')
   }
@@ -104,15 +105,25 @@ export function AddSessionSheet({
 
   async function createFromForm(tpl: ClassTemplate | null) {
     if (recurring && tpl) {
+      // build the recurrence from the FORM (the operator may have edited the
+      // template's time/price/capacity here) — not the stale template (P4-3).
       await createRecurrence.mutateAsync({
-        template: tpl,
+        template: {
+          ...tpl,
+          title: form.title,
+          classTypeId: form.classTypeId,
+          defaultInstructorId: form.instructorId || undefined,
+          capacity: Number(form.capacity),
+          durationMinutes: Number(form.durationMinutes),
+          price: toAgorot(form.price),
+        },
         weekday: weekdayOfDate,
         time: form.time,
         startsOn: form.date,
         endsOn: endsOn || undefined,
       })
     } else {
-      let templateId = tpl?.id
+      const templateId = tpl?.id
       if (saveAsTemplate && !tpl) {
         await saveTemplate.mutateAsync({
           title: form.title,
@@ -120,7 +131,7 @@ export function AddSessionSheet({
           defaultInstructorId: form.instructorId || undefined,
           capacity: Number(form.capacity),
           durationMinutes: Number(form.durationMinutes),
-          price: Number(form.price),
+          price: toAgorot(form.price),
           defaultStartTime: form.time,
         })
       }
@@ -132,7 +143,7 @@ export function AddSessionSheet({
         time: form.time,
         durationMinutes: Number(form.durationMinutes),
         capacity: Number(form.capacity),
-        price: Number(form.price),
+        price: toAgorot(form.price),
         templateId,
       })
     }

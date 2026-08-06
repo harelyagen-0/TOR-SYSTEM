@@ -120,7 +120,7 @@ export function HistorySheet({ open, onClose }: { open: boolean; onClose: () => 
         }
         onNo={() => setRefundTarget(null)}
         onYes={async () => {
-          if (refundTarget) await refund.mutateAsync(refundTarget)
+          if (refundTarget) await refund.mutateAsync({ paymentId: refundTarget.id })
           setRefundTarget(null)
         }}
       />

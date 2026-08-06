@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Button, Field, Input, OptionTile, Pill, Select, Sheet } from '../../../components/ui'
 import { fmt, he } from '../../../locale/he'
 import { dateKey, formatMoney, formatShortDate } from '../../../lib/format'
+import { fromAgorot, toAgorot } from '../../../lib/money'
 import { useTenant } from '../../../tenant/TenantProvider'
 import { useCreatePromo, usePromoCodes, useUpdatePromo } from '../../../data/promoCodes'
 import { useProducts } from '../../../data/products'
@@ -55,7 +56,8 @@ export function PromoSheet({ open, onClose }: { open: boolean; onClose: () => vo
     setName(p.name)
     setDescription(p.description ?? '')
     setDiscountKind(p.discountKind)
-    setValue(String(p.value))
+    // a fixed discount is stored in agorot; a percent is a plain number
+    setValue(String(p.discountKind === 'fixed' ? fromAgorot(p.value) : p.value))
     setValidUntil(p.validUntil ? dateKey(p.validUntil, tenant.timezone) : '')
     setAudience(p.audience)
     setUsageLimit(p.usageLimit != null ? String(p.usageLimit) : '')
@@ -70,7 +72,8 @@ export function PromoSheet({ open, onClose }: { open: boolean; onClose: () => vo
       name,
       description,
       discountKind,
-      value: Number(value),
+      // fixed discounts are money → agorot; percent is a plain number
+      value: discountKind === 'fixed' ? toAgorot(value) : Number(value),
       validUntil: validUntil ? new Date(`${validUntil}T23:59:00`) : undefined,
       audience,
       usageLimit: usageLimit ? Number(usageLimit) : undefined,
@@ -219,7 +222,7 @@ export function PromoSheet({ open, onClose }: { open: boolean; onClose: () => vo
                 <div className="min-w-0">
                   <p className="font-bold"><bdi dir="ltr">{p.code}</bdi> · {p.name}</p>
                   <p className="text-xs text-faint">
-                    {p.discountKind === 'percent' ? `${p.value}%` : `₪${p.value}`}
+                    {p.discountKind === 'percent' ? `${p.value}%` : formatMoney(p.value, tenant.currency, tenant.locale)}
                     {p.validUntil && ` · ${he.promo.validUntil} ${formatShortDate(p.validUntil, tenant.timezone, tenant.locale)}`}
                     {p.usageLimit != null && ` · ${fmt(he.promo.used, { used: p.usedCount, limit: p.usageLimit })}`}
                   </p>

@@ -1,14 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  addDoc,
-  doc,
-  onSnapshot,
-  serverTimestamp,
-} from 'firebase/firestore'
+import { doc, onSnapshot } from 'firebase/firestore'
+import { httpsCallable } from 'firebase/functions'
 import { useEffect, useState } from 'react'
 import { rawCol } from './db'
 import { useTenantId } from './customers'
-import { useAuth } from '../auth/AuthProvider'
+import { functions } from '../lib/firebase'
 import type { Payment, PaymentMethod, Product } from '../types/models'
 
 export interface CartLine {
@@ -17,96 +13,96 @@ export interface CartLine {
 }
 
 export interface CreatePaymentInput {
+  who: 'existing' | 'new' | 'walkIn'
   customerId?: string
+  newCustomer?: { firstName: string; lastName?: string; phone: string; email?: string }
   walkInName?: string
   /** one or more products, each with a quantity (spec §8.1) */
   items: CartLine[]
-  /** final total after promo discount */
-  amount: number
-  promoCodeId?: string
+  promoCode?: string
   method: PaymentMethod
+  cardMode?: 'charge' | 'link'
   otherMethodLabel?: string
+}
+
+export interface CreatePaymentResult {
+  paymentId: string
+  invoiceId: string | null
   status: 'pending' | 'paid'
-  growTransactionId?: string
+  paymentUrl: string | null
+  customerId: string | null
 }
 
 /**
- * Writes the payment document. Everything the payment CAUSES — invoice,
- * ledger line, entitlement / subscription, customer stats — is created by the
- * onPaymentWritten Cloud Function, keeping money invariants server-side.
+ * Creates a payment via the server callable. Pricing, promo validation +
+ * consumption, the card charge, the invoice, the ledger line and the
+ * entitlement/subscription grants are ALL server-side (functions/src/payments.ts)
+ * — the client no longer writes the payment doc, so an amount can never be
+ * forged and a promo can never be over-redeemed.
  */
 export function useCreatePayment() {
   const tenantId = useTenantId()
-  const { user } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: CreatePaymentInput) => {
-      const first = input.items[0].product
-      const ref = await addDoc(rawCol(tenantId, 'payments'), {
-        customerId: input.customerId ?? null,
-        walkInName: input.walkInName ?? null,
-        // representative product = first line (refunds + back-compat readers)
-        productId: first.id,
-        productSnapshot: { name: first.name, price: first.price, kind: first.kind },
-        items: input.items.map((l) => ({
-          productId: l.product.id,
-          name: l.product.name,
-          price: l.product.price,
-          kind: l.product.kind,
-          quantity: l.quantity,
-        })),
-        amount: input.amount,
-        promoCodeId: input.promoCodeId ?? null,
+    mutationFn: async (input: CreatePaymentInput): Promise<CreatePaymentResult> => {
+      const call = httpsCallable<Record<string, unknown>, CreatePaymentResult>(functions, 'createPayment')
+      const res = await call({
+        who: input.who,
+        customerId: input.customerId,
+        newCustomer: input.newCustomer,
+        walkInName: input.walkInName,
+        items: input.items.map((l) => ({ productId: l.product.id, quantity: l.quantity })),
+        promoCode: input.promoCode,
         method: input.method,
-        otherMethodLabel: input.otherMethodLabel ?? null,
-        status: input.status,
-        growTransactionId: input.growTransactionId ?? null,
-        invoiceId: null,
-        refundOfPaymentId: null,
-        createdAt: serverTimestamp(),
-        createdBy: user?.uid ?? 'unknown',
+        cardMode: input.cardMode,
+        otherMethodLabel: input.otherMethodLabel,
       })
-      return ref.id
+      return res.data
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['payments', tenantId] })
       qc.invalidateQueries({ queryKey: ['metric', tenantId] })
+      qc.invalidateQueries({ queryKey: ['customers', tenantId] })
     },
   })
 }
 
 /**
- * A refund is a payment with negative amount + refundOfPaymentId (spec §5).
- * The Cloud Function issues the credit invoice (חשבונית זיכוי), posts the
- * negative ledger line, and flips the original payment to `refunded`.
+ * Records a refund via the server callable: it calls the payment provider,
+ * issues the credit invoice, posts the negative ledger line, reverses the
+ * granted entitlement/subscription, customer stats and promo, and supports
+ * partial amounts (spec §8.2.2).
  */
 export function useRecordRefund() {
   const tenantId = useTenantId()
-  const { user } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (original: Payment) => {
-      await addDoc(rawCol(tenantId, 'payments'), {
-        customerId: original.customerId ?? null,
-        walkInName: original.walkInName ?? null,
-        productId: original.productId,
-        productSnapshot: original.productSnapshot,
-        amount: -Math.abs(original.amount),
-        promoCodeId: null,
-        method: original.method,
-        otherMethodLabel: original.otherMethodLabel ?? null,
-        status: 'refunded',
-        growTransactionId: null,
-        invoiceId: null,
-        refundOfPaymentId: original.id,
-        createdAt: serverTimestamp(),
-        createdBy: user?.uid ?? 'unknown',
-      })
+    mutationFn: async ({ paymentId, amount, reason }: { paymentId: string; amount?: number; reason?: string }) => {
+      const call = httpsCallable(functions, 'refundPayment')
+      await call({ paymentId, amount, reason })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['payments', tenantId] })
       qc.invalidateQueries({ queryKey: ['metric', tenantId] })
       qc.invalidateQueries({ queryKey: ['ledger', tenantId] })
+      qc.invalidateQueries({ queryKey: ['customers', tenantId] })
+    },
+  })
+}
+
+/** Manually mark a pending payment (unfinished Grow link, cash owed) as paid. */
+export function useMarkPaid() {
+  const tenantId = useTenantId()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (paymentId: string) => {
+      const call = httpsCallable(functions, 'markPaymentPaid')
+      await call({ paymentId })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['payments', tenantId] })
+      qc.invalidateQueries({ queryKey: ['ledger', tenantId] })
+      qc.invalidateQueries({ queryKey: ['metric', tenantId] })
     },
   })
 }

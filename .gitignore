@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 
 .impeccable/
+
+# compiled cloud functions
+functions/lib/

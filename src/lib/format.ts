@@ -14,13 +14,19 @@ export function asDate(d: Date | Timestamp): Date {
 }
 
 // ── money ───────────────────────────────────────────────────────────────────
-export function formatMoney(amount: number, currency = 'ILS', locale = 'he-IL'): string {
+/**
+ * Formats an integer agorot amount as currency. Input is ALWAYS agorot (see
+ * src/lib/money.ts); this is the single display boundary that divides by 100.
+ * Whole-shekel amounts show no fraction; anything with agorot shows two.
+ */
+export function formatMoney(agorot: number, currency = 'ILS', locale = 'he-IL'): string {
+  const shekels = agorot / 100
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
     minimumFractionDigits: 0,
-    maximumFractionDigits: Number.isInteger(amount) ? 0 : 2,
-  }).format(amount)
+    maximumFractionDigits: agorot % 100 === 0 ? 0 : 2,
+  }).format(shekels)
 }
 
 // ── dates ───────────────────────────────────────────────────────────────────
