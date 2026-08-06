@@ -50,11 +50,13 @@ export const metricRegistry: MetricDef[] = [
     label: he.metrics.customersAttendedMtd,
     async compute({ tenantId, tz, now }) {
       const monthStart = zonedTimeToUtc(`${monthKey(now, tz)}-01`, '00:00', tz)
+      // measure by attendedAt (when the class happened), not createdAt (when the
+      // booking was made) — a June booking attended in July counts in July.
       const snap = await getDocs(
         query(
           tenantCol<Registration>(tenantId, 'registrations'),
           where('status', '==', 'attended'),
-          where('createdAt', '>=', Timestamp.fromDate(monthStart)),
+          where('attendedAt', '>=', Timestamp.fromDate(monthStart)),
         ),
       )
       const distinct = new Set(snap.docs.map((d) => d.data().customerId))
