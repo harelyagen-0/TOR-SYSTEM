@@ -86,6 +86,17 @@ export function useTemplates() {
   })
 }
 
+export function useRecurrences() {
+  const tenantId = useTenantId()
+  return useQuery({
+    queryKey: ['recurrences', tenantId],
+    queryFn: async () => {
+      const snap = await getDocs(tenantCol<Recurrence>(tenantId, 'recurrences'))
+      return snap.docs.map((d) => d.data())
+    },
+  })
+}
+
 export function useInstructors() {
   const tenantId = useTenantId()
   return useQuery({

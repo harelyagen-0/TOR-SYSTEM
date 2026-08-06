@@ -124,6 +124,7 @@ export function HistorySheet({ open, onClose }: { open: boolean; onClose: () => 
 
       <ConfirmDialog
         open={refundTarget !== null}
+        busy={refund.isPending}
         question={he.payments.refundTitle}
         detail={
           refundTarget

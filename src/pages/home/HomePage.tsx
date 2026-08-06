@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Card, EmptyState, Loading, SectionTitle, StatCard } from '../../components/ui'
 import { he } from '../../locale/he'
 import { dateKey, formatTime } from '../../lib/format'
+import { useToday } from '../../lib/useToday'
 import { useTenant } from '../../tenant/TenantProvider'
 import { useInstructors, useSessionsForDay } from '../../data/calendar'
 import { useMetrics } from '../../metrics/useMetrics'
@@ -17,7 +18,7 @@ import type { Session } from '../../types/models'
 export function HomePage() {
   const tenant = useTenant()
   const navigate = useNavigate()
-  const today = dateKey(new Date(), tenant.timezone)
+  const today = dateKey(useToday(tenant.timezone), tenant.timezone)
   const sessions = useSessionsForDay(today)
   const instructors = useInstructors()
   const metrics = useMetrics()

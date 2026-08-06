@@ -268,6 +268,7 @@ function SubscriptionsView({
       ))}
       <ConfirmDialog
         open={cancelId !== null}
+        busy={cancelSub.isPending}
         question={he.customers.subCancelConfirm}
         onNo={() => setCancelId(null)}
         onYes={() => {

@@ -1,6 +1,7 @@
 import { useLocation } from 'react-router-dom'
 import { fmt, he } from '../locale/he'
 import { formatHeaderDate } from '../lib/format'
+import { useToday } from '../lib/useToday'
 import { useTenant } from '../tenant/TenantProvider'
 
 const TITLES: Record<string, string> = {
@@ -18,7 +19,7 @@ export function Header() {
   const tenant = useTenant()
   const { pathname } = useLocation()
   const title = TITLES[pathname] ?? fmt(he.header.hello, { name: tenant.name })
-  const today = new Date()
+  const today = useToday(tenant.timezone)
 
   return (
     <header

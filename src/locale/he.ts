@@ -344,6 +344,8 @@ export const he = {
     cancelSession: 'ביטול שיעור',
     cancelConfirm: 'למחוק את השיעור?',
     deleteClass: 'מחיקת שיעור',
+    deleteTemplate: 'מחיקת תבנית',
+    templateInUse: 'לא ניתן למחוק — התבנית משמשת סדרה חוזרת פעילה. סיימו את הסדרה קודם.',
     deleteClassConfirm: 'אתה בטוח שאתה רוצה למחוק את השיעור?',
     cancelled: 'בוטל',
     capacity: 'תפוסה',

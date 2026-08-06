@@ -4,7 +4,7 @@ import { fmt, he } from '../../locale/he'
 import { dateKey, formatMoney, weekdayName } from '../../lib/format'
 import { fromAgorot, toAgorot } from '../../lib/money'
 import { useTenant } from '../../tenant/TenantProvider'
-import { useCreateRecurrence, useInstructors, useSaveTemplate, useTemplates } from '../../data/calendar'
+import { useCreateRecurrence, useDeleteTemplate, useInstructors, useRecurrences, useSaveTemplate, useTemplates } from '../../data/calendar'
 import { useProducts } from '../../data/products'
 import type { ClassTemplate } from '../../types/models'
 
@@ -16,6 +16,8 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
   const instructors = useInstructors()
   const products = useProducts()
   const save = useSaveTemplate()
+  const del = useDeleteTemplate()
+  const recurrences = useRecurrences()
   const createRecurrence = useCreateRecurrence()
 
   // only passes + subscriptions can "grant entry"; single entries are always paid
@@ -107,8 +109,9 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
       room: form.room || undefined,
       allowedProductIds: allowedIds,
     })
-    // opt-in: also schedule the template as a weekly recurring class
-    if (recurring && startsOn) {
+    // opt-in: also schedule the template as a weekly recurring class — only on
+    // CREATE, so editing a template never spawns a duplicate series (P3-5)
+    if (recurring && startsOn && editingId === 'new') {
       await createRecurrence.mutateAsync({
         template: {
           id: savedId,
@@ -257,41 +260,45 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
             )}
           </div>
 
-          {/* opt-in: turn this template into a weekly recurring class */}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={recurring}
-            onClick={() => setRecurring((v) => !v)}
-            className={`flex min-h-12 items-center justify-between gap-3 rounded-field border px-3.5 text-start transition-colors ${
-              recurring ? 'border-accent bg-accent/5' : 'border-line bg-surface'
-            }`}
-          >
-            <span className="flex flex-col">
-              <span className="text-sm font-bold">{he.calendar.makeRecurring}</span>
-              <span className="text-xs text-faint">{he.calendar.makeRecurringHint}</span>
-            </span>
-            <span
-              aria-hidden="true"
-              className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${recurring ? 'bg-accent' : 'bg-line'}`}
-            >
-              <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${recurring ? 'start-0.5' : 'start-[1.125rem]'}`} />
-            </span>
-          </button>
-
-          {recurring && (
+          {/* opt-in: turn this template into a weekly recurring class — create only */}
+          {editingId === 'new' && (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label={he.calendar.startsOn}>
-                  <Input required type="date" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} />
-                </Field>
-                <Field label={he.calendar.endsOn}>
-                  <Input type="date" value={endsOn} onChange={(e) => setEndsOn(e.target.value)} />
-                </Field>
-              </div>
-              <p className="-mt-1 text-xs text-faint">
-                {fmt(he.calendar.recurringSummary, { day: weekdayName(weekday), time: form.defaultStartTime })}
-              </p>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={recurring}
+                onClick={() => setRecurring((v) => !v)}
+                className={`flex min-h-12 items-center justify-between gap-3 rounded-field border px-3.5 text-start transition-colors ${
+                  recurring ? 'border-accent bg-accent/5' : 'border-line bg-surface'
+                }`}
+              >
+                <span className="flex flex-col">
+                  <span className="text-sm font-bold">{he.calendar.makeRecurring}</span>
+                  <span className="text-xs text-faint">{he.calendar.makeRecurringHint}</span>
+                </span>
+                <span
+                  aria-hidden="true"
+                  className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${recurring ? 'bg-accent' : 'bg-line'}`}
+                >
+                  <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${recurring ? 'start-0.5' : 'start-[1.125rem]'}`} />
+                </span>
+              </button>
+
+              {recurring && (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label={he.calendar.startsOn}>
+                      <Input required type="date" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} />
+                    </Field>
+                    <Field label={he.calendar.endsOn}>
+                      <Input type="date" value={endsOn} onChange={(e) => setEndsOn(e.target.value)} />
+                    </Field>
+                  </div>
+                  <p className="-mt-1 text-xs text-faint">
+                    {fmt(he.calendar.recurringSummary, { day: weekdayName(weekday), time: form.defaultStartTime })}
+                  </p>
+                </>
+              )}
             </>
           )}
 
@@ -299,6 +306,26 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
             <Button variant="ghost" onClick={() => setEditingId(null)}>{he.common.cancel}</Button>
             <Button type="submit" disabled={save.isPending || createRecurrence.isPending}>{he.common.save}</Button>
           </div>
+
+          {/* delete — blocked while a recurring series still references it (P3-5) */}
+          {editingId !== 'new' && (() => {
+            const referenced = (recurrences.data ?? []).some((r) => r.templateId === editingId && !r.endsOn)
+            return (
+              <div className="border-t border-hair pt-3">
+                {referenced && <p className="mb-2 text-xs text-warn">{he.calendar.templateInUse}</p>}
+                <Button
+                  variant="ghost"
+                  className="w-full text-crit"
+                  disabled={referenced || del.isPending}
+                  onClick={async () => {
+                    if (editingId) { await del.mutateAsync(editingId); setEditingId(null) }
+                  }}
+                >
+                  {he.calendar.deleteTemplate}
+                </Button>
+              </div>
+            )
+          })()}
         </form>
       )}
     </Sheet>

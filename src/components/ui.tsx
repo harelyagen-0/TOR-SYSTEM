@@ -253,6 +253,7 @@ export function ConfirmDialog({
   onYes,
   onNo,
   danger = true,
+  busy = false,
 }: {
   open: boolean
   question: string
@@ -260,17 +261,21 @@ export function ConfirmDialog({
   onYes: () => void
   onNo: () => void
   danger?: boolean
+  /** disables both buttons while the confirmed action runs (no double-tap) */
+  busy?: boolean
 }) {
   return (
     <Sheet
       open={open}
-      onClose={onNo}
+      onClose={busy ? () => {} : onNo}
       title={question}
       subtitle={detail}
       footer={
         <>
-          <Button variant="ghost" onClick={onNo}>{he.common.no}</Button>
-          <Button variant={danger ? 'danger' : 'primary'} onClick={onYes}>{he.common.yes}</Button>
+          <Button variant="ghost" disabled={busy} onClick={onNo}>{he.common.no}</Button>
+          <Button variant={danger ? 'danger' : 'primary'} disabled={busy} onClick={onYes}>
+            {busy ? he.common.loading : he.common.yes}
+          </Button>
         </>
       }
     />
