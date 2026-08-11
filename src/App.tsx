@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, createHashRouter, RouterProvider } from 'react-router-dom'
 import { useAuth } from './auth/AuthProvider'
 import { LoginPage } from './auth/LoginPage'
 import { TenantProvider } from './tenant/TenantProvider'
@@ -10,7 +10,11 @@ import { AnalyticsPage } from './pages/analytics/AnalyticsPage'
 import { CalendarPage } from './pages/calendar/CalendarPage'
 import { CustomersPage } from './pages/customers/CustomersPage'
 
-const router = createBrowserRouter([
+// The standalone demo build (VITE_DEMO) uses hash routing so it runs correctly
+// when served from any path (static host / preview) without server rewrites.
+const createRouter = import.meta.env.VITE_DEMO === 'true' ? createHashRouter : createBrowserRouter
+
+const router = createRouter([
   {
     element: <AppShell />,
     children: [

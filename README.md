@@ -25,6 +25,30 @@ Demo login: **owner@demo.test / demo1234** (tenant `demo-yoga`).
 Pointing at a real Firebase project later: set `VITE_FB_*` env vars and
 `VITE_USE_EMULATORS=false` — no code change.
 
+## Standalone demo (no backend at all)
+
+For a click-through demo with **no Firebase, no emulators, no Java, no seed
+step** — everything runs in the browser against an in-memory backend:
+
+```bash
+npm install
+npm run dev:demo     # → http://localhost:5199  (auto-logs-in to tenant demo-yoga)
+# or a static bundle you can host / open anywhere:
+npm run build:demo   # → dist/  (hash-routed, PWA off, ~477 kB)
+node scripts/demo-verify.mjs demo-out   # headless smoke test + screenshots
+```
+
+How it works (`src/demo/`, wired by a `VITE_DEMO=true` alias in `vite.config.ts`):
+`firebase/{app,firestore,auth,functions,storage}` are swapped for in-memory
+stand-ins that reimplement exactly the Firestore surface the app uses **plus the
+Cloud Function triggers** (`onPaymentWritten`, `onExpenseCreated`) and the
+accountant-report compiler — so money + schedule invariants behave identically
+(a cash sale really issues an invoice + ledger line + entitlement). The dataset
+is a faithful port of `scripts/seed.mjs` (tenant *סטודיו גל*, catalogue, 8
+customers, schedule, payments, subscriptions). **None of `src/demo/` ships in
+the normal build.** When the real backend lands this whole layer just gets
+deleted.
+
 ## Verification
 
 ```bash
