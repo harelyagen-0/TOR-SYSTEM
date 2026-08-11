@@ -373,6 +373,7 @@ export const he = {
     allowedProductsSome: '{n} מתוך {total} נבחרו',
     allowedProductsHint: 'שיעור שלא נכלל במנוי — הלקוח משלם כניסה בודדת',
     allowedProductsNone: 'אין מנויים או כרטיסיות',
+    allowedProductsBlocked: 'לא תקף לסוג שיעור זה',
     instructorsTitle: 'מדריכים',
     instructorsEmpty: 'אין עדיין מדריכים',
     newInstructor: 'מדריך/ה חדש/ה',

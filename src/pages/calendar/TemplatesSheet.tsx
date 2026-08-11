@@ -254,22 +254,37 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
               </span>
             </button>
 
-            {productsOpen && eligibleProducts.length > 0 && (
+            {productsOpen && passProducts.length > 0 && (
               <div className="mt-2 flex flex-col gap-1 rounded-field border border-line bg-page/60 p-2">
-                {eligibleProducts.map((p) => (
-                  <label key={p.id} className="flex min-h-10 items-center gap-3 rounded-md px-1.5 text-sm">
-                    <input
-                      type="checkbox"
-                      className="size-5 accent-[var(--t-accent)]"
-                      checked={isAllowed(p.id)}
-                      onChange={() => toggleAllowed(p.id)}
-                    />
-                    <span className="min-w-0 flex-1 truncate font-semibold">{p.name}</span>
-                    <span className="shrink-0 text-xs text-faint tnum">
-                      <bdi>{formatMoney(p.price, tenant.currency, tenant.locale)}</bdi>
-                    </span>
-                  </label>
-                ))}
+                {passProducts.map((p) => {
+                  // enforcement made visible: a pass whose allowedClassTypes
+                  // doesn't cover this class type is shown disabled with the
+                  // reason, never silently hidden.
+                  const eligible = productCoversClassType(p, form.classTypeId)
+                  return (
+                    <label
+                      key={p.id}
+                      className={`flex min-h-10 items-center gap-3 rounded-md px-1.5 text-sm ${eligible ? '' : 'opacity-55'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="size-5 accent-[var(--t-accent)]"
+                        disabled={!eligible}
+                        checked={eligible && isAllowed(p.id)}
+                        onChange={() => toggleAllowed(p.id)}
+                      />
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate font-semibold">{p.name}</span>
+                        {!eligible && (
+                          <span className="truncate text-xs text-faint">{he.calendar.allowedProductsBlocked}</span>
+                        )}
+                      </span>
+                      <span className="shrink-0 text-xs text-faint tnum">
+                        <bdi>{formatMoney(p.price, tenant.currency, tenant.locale)}</bdi>
+                      </span>
+                    </label>
+                  )
+                })}
                 <p className="px-1.5 pt-1 text-xs text-faint">{he.calendar.allowedProductsHint}</p>
               </div>
             )}
