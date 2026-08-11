@@ -104,6 +104,44 @@ Tenant resolution strategy · Grow API + recurring tokens · invoicing provider 
 accountant report file format (`generateAccountantReport`) · booking screen +
 punch-card auto-deduction · real WhatsApp/email · final analytics metric list.
 
+## Standalone demo preview (the shared clickable link)
+
+There is a Firebase-free, single-file build of the app used as a shareable
+clickable preview (aliases `firebase/*` to `src/demo/` in-memory stand-ins;
+enabled by `VITE_DEMO=true`). It is published as a claude.ai Artifact.
+
+**Rebuild + verify (one command):**
+
+```
+npm run demo:preview
+```
+
+That runs `build:demo`, inlines JS/CSS into `demo-out/preview.html` via
+`scripts/inline-demo.mjs`, then `scripts/test-inlined.mjs` loads that exact file
+in headless Chromium and asserts it renders (nav present, 0 JS errors). ALWAYS
+run this before publishing — do not hand-roll the inlining. (History: a naive
+`String.replace()` inliner spliced the page skeleton in wherever the minified
+bundle contained a `` $` `` sequence, producing a blank page. `inline-demo.mjs`
+uses function replacements to avoid that; the render test is the guardrail.)
+
+**Publish/update the SAME preview (keep the link stable):** publish
+`demo-out/preview.html` with the Artifact tool, passing the existing URL as
+`url` so it updates in place instead of minting a new link. A fresh session that
+did not publish it will get a "hasn't viewed the latest version" guard on first
+write — the build is a wholesale replacement, so `force: true` is the intended
+resolution here. Keep `favicon: "🧘"` and title "Studio OS" stable.
+
+- Canonical preview URL: `https://claude.ai/code/artifact/918f9721-52a9-4db3-9a44-43ea024bc59b`
+- (An earlier duplicate `82cb0145-94fe-4d3f-a6a6-e6d393e5c859` points at the same build; prefer the canonical one above.)
+
+**Two changes live in this preview (branch `claude/system-ui-functionality-d2wtpm`):**
+1. `Product.allowedClassTypes` — new-product form (`ProductSheet`) has a
+   "סוגי שיעורים מורשים" box to pick which class types a product grants entry to
+   (empty = all). Added below the price field; replaces nothing.
+2. Enforcement via `src/lib/eligibility.ts` `productCoversClassType()` — the
+   `TemplatesSheet` pass picker shows a pass disabled + "לא תקף לסוג שיעור זה"
+   when its `allowedClassTypes` doesn't cover the template's class type.
+
 First task: read nothing beyond what I point you at — I'll give you the fixes.
 
 ---
