@@ -83,10 +83,10 @@ export function seedDemo(): void {
 
   // ── products ───────────────────────────────────────────────────────────────
   const products: any[] = [
-    { id: 'prod-single', name: 'כניסה בודדת ליוגה', description: 'שיעור אחד, כל סוגי היוגה', price: 50, kind: 'single', active: true },
-    { id: 'prod-punch10', name: 'כרטיסייה 10 כניסות', description: 'בתוקף לשנה מרגע הרכישה', price: 450, kind: 'punchCard', punchCount: 10, active: true },
-    { id: 'prod-sub-yoga', name: 'מנוי חודשי — יוגה', description: 'ללא הגבלת כניסות לשיעורי יוגה', price: 300, kind: 'subscription', intervalDays: 30, active: true },
-    { id: 'prod-sub-studio', name: 'מנוי חודשי — סטודיו + פילאטיס', description: 'כל השיעורים כולל פילאטיס מכשירים', price: 380, kind: 'subscription', intervalDays: 30, active: true },
+    { id: 'prod-single', name: 'כניסה בודדת ליוגה', description: 'שיעור אחד, כל סוגי היוגה', price: 50, kind: 'single', allowedClassTypes: ['yoga'], active: true },
+    { id: 'prod-punch10', name: 'כרטיסייה 10 כניסות', description: 'בתוקף לשנה מרגע הרכישה', price: 450, kind: 'punchCard', punchCount: 10, allowedClassTypes: [], active: true },
+    { id: 'prod-sub-yoga', name: 'מנוי חודשי — יוגה', description: 'ללא הגבלת כניסות לשיעורי יוגה', price: 300, kind: 'subscription', intervalDays: 30, allowedClassTypes: ['yoga', 'meditation'], active: true },
+    { id: 'prod-sub-studio', name: 'מנוי חודשי — סטודיו + פילאטיס', description: 'כל השיעורים כולל פילאטיס מכשירים', price: 380, kind: 'subscription', intervalDays: 30, allowedClassTypes: [], active: true },
   ]
   for (const prod of products) { const { id, ...rest } = prod; set('products', id, { ...rest, createdAt: ts(daysAgo(90)) }) }
   const prodById: Record<string, any> = Object.fromEntries(products.map((p) => [p.id, p]))

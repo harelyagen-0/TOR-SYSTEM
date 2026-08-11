@@ -70,6 +70,13 @@ export interface Product {
   punchCount?: number
   /** subscription only; default 30 */
   intervalDays?: number
+  /**
+   * Which class types this product grants entry to (positive permission list
+   * of tenant classType ids). `null` / absent / empty = every class type (the
+   * default); a selection restricts the product to those class types only —
+   * e.g. a yoga-only pass that a pilates class won't accept.
+   */
+  allowedClassTypes?: string[] | null
   active: boolean
   createdAt: Timestamp
 }

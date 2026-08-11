@@ -2,18 +2,27 @@ import { useState, type FormEvent } from 'react'
 import { Button, Field, Input, OptionTile, Sheet } from '../../../components/ui'
 import { he } from '../../../locale/he'
 import { useCreateProduct } from '../../../data/products'
+import { useTenant } from '../../../tenant/TenantProvider'
 import type { ProductKind } from '../../../types/models'
 
 /** §8.2.1 — name, description, price, kind (single / punch card of N /
  *  subscription every N days). */
 export function ProductSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const create = useCreateProduct()
+  const tenant = useTenant()
   const [kind, setKind] = useState<ProductKind>('single')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
   const [punchCount, setPunchCount] = useState('10')
   const [intervalDays, setIntervalDays] = useState('30')
+  const [allowedTypes, setAllowedTypes] = useState<string[]>([])
+
+  function toggleType(id: string) {
+    setAllowedTypes((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    )
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -24,8 +33,9 @@ export function ProductSheet({ open, onClose }: { open: boolean; onClose: () => 
       kind,
       punchCount: Number(punchCount) || 10,
       intervalDays: Number(intervalDays) || 30,
+      allowedClassTypes: allowedTypes,
     })
-    setName(''); setDescription(''); setPrice('')
+    setName(''); setDescription(''); setPrice(''); setAllowedTypes([])
     onClose()
   }
 
@@ -58,6 +68,30 @@ export function ProductSheet({ open, onClose }: { open: boolean; onClose: () => 
             <Input required type="number" inputMode="numeric" min="1" dir="ltr" className="text-end tnum" value={intervalDays} onChange={(e) => setIntervalDays(e.target.value)} />
           </Field>
         )}
+
+        <fieldset>
+          <legend className="mb-1.5 text-sm font-semibold">{he.products.allowedTypes}</legend>
+          <p className="mb-2 text-xs text-faint">{he.products.allowedTypesHint}</p>
+          <div className="flex flex-col gap-1.5">
+            {tenant.classTypes.map((c) => (
+              <label key={c.id} className="flex min-h-11 items-center gap-3 rounded-field border border-line px-3 text-sm font-semibold">
+                <input
+                  type="checkbox"
+                  className="size-5 accent-[var(--t-accent)]"
+                  checked={allowedTypes.includes(c.id)}
+                  onChange={() => toggleType(c.id)}
+                />
+                <span className="inline-flex items-center gap-2">
+                  <span aria-hidden="true" className="size-2.5 rounded-full" style={{ background: c.color }} />
+                  {c.labelHe}
+                </span>
+              </label>
+            ))}
+          </div>
+          {allowedTypes.length === 0 && (
+            <p className="mt-2 text-xs font-semibold text-faint">{he.products.allowedTypesAll}</p>
+          )}
+        </fieldset>
 
         <div className="flex gap-3 [&>*]:flex-1">
           <Button variant="ghost" onClick={onClose}>{he.common.cancel}</Button>
