@@ -5,6 +5,7 @@ import { dateKey, formatMoney, weekdayName } from '../../lib/format'
 import { useTenant } from '../../tenant/TenantProvider'
 import { useCreateRecurrence, useInstructors, useSaveTemplate, useTemplates } from '../../data/calendar'
 import { useProducts } from '../../data/products'
+import { productCoversClassType } from '../../lib/eligibility'
 import type { ClassTemplate } from '../../types/models'
 
 /** §10 bottom button 1 — manage class templates: title, class type,
@@ -32,14 +33,6 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
   const [allowedIds, setAllowedIds] = useState<string[] | null>(null)
   const [productsOpen, setProductsOpen] = useState(false)
 
-  const isAllowed = (id: string) => allowedIds === null || allowedIds.includes(id)
-  function toggleAllowed(id: string) {
-    const all = passProducts.map((p) => p.id)
-    let next = allowedIds === null ? [...all] : [...allowedIds]
-    next = next.includes(id) ? next.filter((x) => x !== id) : [...next, id]
-    // collapse back to "all" (null) when nothing is excluded — future-proof
-    setAllowedIds(next.length === all.length && all.every((x) => next.includes(x)) ? null : next)
-  }
   const empty = {
     title: '',
     classTypeId: tenant.classTypes[0]?.id ?? '',
@@ -66,6 +59,24 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
       ),
     [instructors.data, form.classTypeId],
   )
+
+  // enforce the product→classType permission: only offer passes whose
+  // allowedClassTypes covers this class's type. A yoga-only pass is never
+  // offered as granting entry to a pilates class — the two permission
+  // directions can't be configured into contradiction.
+  const eligibleProducts = useMemo(
+    () => passProducts.filter((p) => productCoversClassType(p, form.classTypeId)),
+    [passProducts, form.classTypeId],
+  )
+
+  const isAllowed = (id: string) => allowedIds === null || allowedIds.includes(id)
+  function toggleAllowed(id: string) {
+    const all = eligibleProducts.map((p) => p.id)
+    let next = allowedIds === null ? [...all] : [...allowedIds]
+    next = next.includes(id) ? next.filter((x) => x !== id) : [...next, id]
+    // collapse back to "all" (null) when nothing is excluded — future-proof
+    setAllowedIds(next.length === all.length && all.every((x) => next.includes(x)) ? null : next)
+  }
 
   function startEdit(t: ClassTemplate | null) {
     // recurrence is always opt-in and reset per open — never a default
@@ -94,6 +105,14 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
+    // never persist a pass that the class type doesn't allow — prune to the
+    // eligible set, then collapse to null ("all") when nothing is excluded.
+    let allowedToSave = allowedIds
+    if (allowedToSave !== null) {
+      const eligibleIds = eligibleProducts.map((p) => p.id)
+      const pruned = allowedToSave.filter((id) => eligibleIds.includes(id))
+      allowedToSave = pruned.length === eligibleIds.length ? null : pruned
+    }
     const savedId = await save.mutateAsync({
       id: editingId === 'new' ? undefined : editingId!,
       title: form.title,
@@ -104,7 +123,7 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
       price: Number(form.price),
       defaultStartTime: form.defaultStartTime,
       room: form.room || undefined,
-      allowedProductIds: allowedIds,
+      allowedProductIds: allowedToSave,
     })
     // opt-in: also schedule the template as a weekly recurring class
     if (recurring && startsOn) {
@@ -220,11 +239,11 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
               <span className="flex min-w-0 flex-col">
                 <span className="text-sm font-bold">{he.calendar.allowedProducts}</span>
                 <span className="truncate text-xs text-faint">
-                  {passProducts.length === 0
+                  {eligibleProducts.length === 0
                     ? he.calendar.allowedProductsNone
                     : allowedIds === null
                       ? he.calendar.allowedProductsAll
-                      : fmt(he.calendar.allowedProductsSome, { n: allowedIds.length, total: passProducts.length })}
+                      : fmt(he.calendar.allowedProductsSome, { n: allowedIds.filter((id) => eligibleProducts.some((p) => p.id === id)).length, total: eligibleProducts.length })}
                 </span>
               </span>
               <span
@@ -235,9 +254,9 @@ export function TemplatesSheet({ open, onClose }: { open: boolean; onClose: () =
               </span>
             </button>
 
-            {productsOpen && passProducts.length > 0 && (
+            {productsOpen && eligibleProducts.length > 0 && (
               <div className="mt-2 flex flex-col gap-1 rounded-field border border-line bg-page/60 p-2">
-                {passProducts.map((p) => (
+                {eligibleProducts.map((p) => (
                   <label key={p.id} className="flex min-h-10 items-center gap-3 rounded-md px-1.5 text-sm">
                     <input
                       type="checkbox"
