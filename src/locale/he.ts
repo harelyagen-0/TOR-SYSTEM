@@ -244,6 +244,14 @@ export const he = {
     methodDetailPlaceholder: 'למשל: העברה בנקאית',
   },
 
+  upload: {
+    prompt: 'בחרו קובץ או גררו לכאן',
+    formats: 'JPEG, PNG או PDF — עד 50MB',
+    browse: 'בחירת קובץ',
+    selected: 'קובץ נבחר',
+    remove: 'הסרת הקובץ',
+  },
+
   report: {
     title: 'דוח רואה חשבון',
     currentMonth: 'החודש הנוכחי',

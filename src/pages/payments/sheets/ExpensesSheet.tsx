@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Button, EmptyState, Field, Input, Loading, OptionTile, Sheet } from '../../../components/ui'
+import { FileUploadField } from '../../../components/FileUploadField'
 import { he } from '../../../locale/he'
 import { dateKey, formatMoney, formatShortDate } from '../../../lib/format'
 import { useTenant } from '../../../tenant/TenantProvider'
@@ -79,18 +80,12 @@ export function ExpensesSheet({ open, onClose }: { open: boolean; onClose: () =>
           )}
         </div>
 
-        <label className="relative flex flex-col items-center gap-1 rounded-field border-[1.5px] border-dashed border-line bg-page/60 px-4 py-6 text-center">
-          <input
-            type="file"
-            accept="image/*,application/pdf"
-            aria-label={he.expenses.receipt}
-            className="absolute inset-0 size-full cursor-pointer opacity-0"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-          <span aria-hidden="true" className="text-xl opacity-70">📷</span>
-          <span className="text-sm font-bold">{file ? file.name : he.expenses.receipt}</span>
-          <span className="text-xs text-faint">{he.expenses.receiptHint}</span>
-        </label>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-semibold">
+            {he.expenses.receipt} <span className="font-normal text-faint">{he.common.optional}</span>
+          </span>
+          <FileUploadField file={file} onSelect={setFile} />
+        </div>
 
         <Button type="submit" disabled={create.isPending}>
           {create.isPending ? he.common.loading : he.common.save}
