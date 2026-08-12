@@ -67,6 +67,24 @@ export function useCustomerPayments(customerId: string | null) {
   })
 }
 
+/** All entitlements in the tenant (used by the card-pass customer filter);
+ *  the per-customer variant below powers the profile sheet. */
+export function useEntitlements() {
+  const tenantId = useTenantId()
+  return useQuery({
+    queryKey: ['entitlements', tenantId, '__all__'],
+    queryFn: async () => {
+      const snap = await getDocs(
+        query(
+          tenantCol<Entitlement>(tenantId, 'entitlements'),
+          orderBy('createdAt', 'desc'),
+        ),
+      )
+      return snap.docs.map((d) => d.data())
+    },
+  })
+}
+
 export function useCustomerEntitlements(customerId: string | null) {
   const tenantId = useTenantId()
   return useQuery({

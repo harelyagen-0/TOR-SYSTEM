@@ -267,6 +267,8 @@ export const he = {
     filter: 'סינון',
     filterAll: 'כל הלקוחות',
     filterSubscribers: 'מנויים',
+    filterPunchCards: 'כרטיסיות',
+    filterHint: 'אפשר לבחור כמה סינונים יחד',
     empty: 'אין עדיין לקוחות',
     profileTitle: 'כרטיס לקוח',
     details: 'פרטים',
@@ -309,6 +311,10 @@ export const he = {
     subCancelConfirm: 'לבטל את המנוי?',
     subPaused: 'מושהה',
     subCancelled: 'בוטל',
+
+    // card-pass (punch card) view
+    passEmpty: 'אין כרטיסיות פעילות',
+    passExpires: 'בתוקף עד',
     subActive: 'פעיל',
     subEmpty: 'אין מנויים פעילים',
   },

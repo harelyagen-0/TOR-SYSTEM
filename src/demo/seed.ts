@@ -386,6 +386,11 @@ export function seedDemo(): void {
     customerId: 'cust-7', productId: 'prod-punch10', kind: 'punchCard',
     remaining: 0, expiresAt: ts(daysAgo(-325)), status: 'used', createdAt: ts(daysAgo(40)),
   })
+  // cust-7 finished their first card and bought another — still active
+  set('entitlements', 'ent-3', {
+    customerId: 'cust-7', productId: 'prod-punch10', kind: 'punchCard',
+    remaining: 8, expiresAt: ts(daysAgo(-353)), status: 'active', createdAt: ts(daysAgo(12)),
+  })
   const subs = [
     { id: 'sub-1', customerId: 'cust-1', productId: 'prod-sub-yoga', started: 62, next: -28, months: 3, status: 'active' },
     { id: 'sub-2', customerId: 'cust-3', productId: 'prod-sub-studio', started: 36, next: -24, months: 12, status: 'active' },

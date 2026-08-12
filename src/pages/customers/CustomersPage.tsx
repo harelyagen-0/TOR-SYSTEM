@@ -10,6 +10,7 @@ import {
   Loading,
   Pill,
   SearchInput,
+  SectionTitle,
   Sheet,
 } from '../../components/ui'
 import { fmt, he } from '../../locale/he'
@@ -19,20 +20,36 @@ import {
   filterCustomers,
   useCreateCustomer,
   useCustomers,
+  useEntitlements,
 } from '../../data/customers'
+import { useProducts } from '../../data/products'
 import { useSubscriptions, useUpdateSubscriptionStatus } from '../../data/subscriptions'
-import type { Customer, Subscription } from '../../types/models'
+import type { Customer, Entitlement, Product, Subscription } from '../../types/models'
 import { CustomerProfileSheet } from './CustomerProfileSheet'
 
-type ViewMode = 'all' | 'subscribers'
+/** The customer list can be narrowed to holders of subscriptions and/or card
+ *  passes; both facets can be active at once, and none active = every customer. */
+type Facet = 'subscribers' | 'passes'
 
 export function CustomersPage() {
   const [params, setParams] = useSearchParams()
   const [q, setQ] = useState('')
-  const [view, setView] = useState<ViewMode>('all')
+  const [facets, setFacets] = useState<Set<Facet>>(() => new Set())
   const [filterOpen, setFilterOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [profileId, setProfileId] = useState<string | null>(null)
+
+  const filtering = facets.size > 0
+  const bothFacets = facets.size > 1
+
+  function toggleFacet(facet: Facet) {
+    setFacets((prev) => {
+      const next = new Set(prev)
+      if (next.has(facet)) next.delete(facet)
+      else next.add(facet)
+      return next
+    })
+  }
 
   // deep links: /customers?action=add (Home) · ?view=subscribers (Payments)
   useEffect(() => {
@@ -40,7 +57,8 @@ export function CustomersPage() {
     const viewParam = params.get('view')
     if (!action && !viewParam) return
     if (action === 'add') setAddOpen(true)
-    if (viewParam === 'subscribers') setView('subscribers')
+    if (viewParam === 'subscribers') setFacets(new Set(['subscribers']))
+    if (viewParam === 'passes') setFacets(new Set(['passes']))
     setParams({}, { replace: true })
   }, [params, setParams])
 
@@ -74,19 +92,27 @@ export function CustomersPage() {
         <button
           type="button"
           aria-label={he.customers.filter}
-          aria-pressed={view !== 'all'}
+          aria-pressed={filtering}
           onClick={() => setFilterOpen(true)}
-          className={`grid size-12 shrink-0 place-items-center rounded-field border ${
-            view !== 'all' ? 'border-accent text-accent' : 'border-line bg-surface text-muted'
+          className={`relative grid size-12 shrink-0 place-items-center rounded-field border ${
+            filtering ? 'border-accent text-accent' : 'border-line bg-surface text-muted'
           }`}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" className="size-5" aria-hidden="true">
             <path d="M4 6h16M7 12h10M10 18h4" />
           </svg>
+          {filtering && (
+            <span
+              aria-hidden="true"
+              className="absolute -end-1 -top-1 grid min-w-4 place-items-center rounded-full bg-accent px-1 text-[0.625rem] font-bold leading-4 text-on-primary tnum"
+            >
+              {facets.size}
+            </span>
+          )}
         </button>
       </div>
 
-      {view === 'all' ? (
+      {!filtering ? (
         customers.isLoading ? (
           <Loading />
         ) : filtered.length === 0 ? (
@@ -99,40 +125,69 @@ export function CustomersPage() {
           </div>
         )
       ) : (
-        <SubscriptionsView
-          query={q}
-          onOpenCustomer={(id) => setProfileId(id)}
-        />
+        <div className="flex flex-col gap-5">
+          {facets.has('subscribers') && (
+            <section>
+              {bothFacets && <SectionTitle>{he.customers.filterSubscribers}</SectionTitle>}
+              <SubscriptionsView query={q} onOpenCustomer={(id) => setProfileId(id)} />
+            </section>
+          )}
+          {facets.has('passes') && (
+            <section>
+              {bothFacets && <SectionTitle>{he.customers.filterPunchCards}</SectionTitle>}
+              <PassesView query={q} onOpenCustomer={(id) => setProfileId(id)} />
+            </section>
+          )}
+        </div>
       )}
 
-      {/* filter sheet */}
+      {/* filter sheet — "all" clears; the two facets toggle and can combine */}
       <Sheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
         title={he.customers.filter}
+        subtitle={he.customers.filterHint}
+        footer={<Button onClick={() => setFilterOpen(false)}>{he.common.confirm}</Button>}
       >
+        <button
+          type="button"
+          role="radio"
+          aria-checked={!filtering}
+          onClick={() => {
+            setFacets(new Set())
+            setFilterOpen(false)
+          }}
+          className={`flex min-h-12 items-center justify-between rounded-field border px-4 text-sm font-semibold ${
+            !filtering ? 'border-accent bg-accent/5 text-accent' : 'border-line bg-surface'
+          }`}
+        >
+          {he.customers.filterAll}
+          {!filtering && <CheckIcon />}
+        </button>
+
         {(
           [
-            ['all', he.customers.filterAll],
             ['subscribers', he.customers.filterSubscribers],
+            ['passes', he.customers.filterPunchCards],
           ] as const
-        ).map(([mode, label]) => (
-          <button
-            key={mode}
-            type="button"
-            role="radio"
-            aria-checked={view === mode}
-            onClick={() => {
-              setView(mode)
-              setFilterOpen(false)
-            }}
-            className={`flex min-h-12 items-center justify-between rounded-field border px-4 text-sm font-semibold ${
-              view === mode ? 'border-accent bg-accent/5 text-accent' : 'border-line bg-surface'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+        ).map(([facet, label]) => {
+          const on = facets.has(facet)
+          return (
+            <button
+              key={facet}
+              type="button"
+              role="checkbox"
+              aria-checked={on}
+              onClick={() => toggleFacet(facet)}
+              className={`flex min-h-12 items-center justify-between rounded-field border px-4 text-sm font-semibold ${
+                on ? 'border-accent bg-accent/5 text-accent' : 'border-line bg-surface'
+              }`}
+            >
+              {label}
+              {on && <CheckIcon />}
+            </button>
+          )
+        })}
       </Sheet>
 
       <AddCustomerSheet open={addOpen} onClose={() => setAddOpen(false)} />
@@ -362,5 +417,122 @@ function SubRow({ label, value }: { label: string; value: string }) {
       <dt className="text-faint">{label}</dt>
       <dd className="font-bold tnum"><bdi>{value}</bdi></dd>
     </div>
+  )
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-4 shrink-0" aria-hidden="true">
+      <path d="M5 12.5l4.5 4.5L19 7" />
+    </svg>
+  )
+}
+
+// ── card-pass (punch-card) view ─────────────────────────────────────────────
+// Mirrors the subscription view, but over active punch-card entitlements: one
+// card per live pass, showing the customer, the product and the balance left.
+function PassesView({
+  query,
+  onOpenCustomer,
+}: {
+  query: string
+  onOpenCustomer: (customerId: string) => void
+}) {
+  const tenant = useTenant()
+  const customers = useCustomers()
+  const entitlements = useEntitlements()
+  const products = useProducts(false)
+
+  const byId = useMemo(
+    () => new Map((customers.data ?? []).map((c) => [c.id, c])),
+    [customers.data],
+  )
+  const productById = useMemo(
+    () => new Map((products.data ?? []).map((p) => [p.id, p])),
+    [products.data],
+  )
+
+  const visible = useMemo(() => {
+    const list = (entitlements.data ?? []).filter(
+      (e) => e.kind === 'punchCard' && e.status === 'active' && (e.remaining ?? 0) > 0,
+    )
+    if (!query.trim()) return list
+    const matching = new Set(filterCustomers(customers.data ?? [], query).map((c) => c.id))
+    return list.filter((e) => matching.has(e.customerId))
+  }, [entitlements.data, customers.data, query])
+
+  if (entitlements.isLoading || customers.isLoading) return <Loading />
+  if (visible.length === 0) return <EmptyState title={he.customers.passEmpty} />
+
+  return (
+    <div className="flex flex-col gap-2">
+      {visible.map((e) => (
+        <PassCard
+          key={e.id}
+          ent={e}
+          customer={byId.get(e.customerId)}
+          product={productById.get(e.productId)}
+          currency={tenant.currency}
+          locale={tenant.locale}
+          tz={tenant.timezone}
+          onOpenCustomer={onOpenCustomer}
+        />
+      ))}
+    </div>
+  )
+}
+
+function PassCard({
+  ent,
+  customer,
+  product,
+  currency,
+  locale,
+  tz,
+  onOpenCustomer,
+}: {
+  ent: Entitlement
+  customer: Customer | undefined
+  product: Product | undefined
+  currency: string
+  locale: string
+  tz: string
+  onOpenCustomer: (id: string) => void
+}) {
+  return (
+    <Card className="flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => customer && onOpenCustomer(customer.id)}
+          className="min-w-0 text-start"
+        >
+          <span className="block truncate text-sm font-bold">
+            {customer ? `${customer.firstName} ${customer.lastName}` : '—'}
+          </span>
+          {customer && (
+            <span className="block text-xs text-faint">
+              <bdi>{customer.phone}</bdi> · {customer.publicId}
+            </span>
+          )}
+        </button>
+        <Pill tone="ok">{fmt(he.customers.punchesLeft, { n: ent.remaining ?? 0 })}</Pill>
+      </div>
+
+      {product && (
+        <p className="text-sm font-semibold">
+          {product.name} ·{' '}
+          <bdi className="tnum">{formatMoney(product.price, currency, locale)}</bdi>
+        </p>
+      )}
+
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+        <SubRow label={he.customers.subPurchased} value={formatShortDate(ent.createdAt, tz, locale)} />
+        <SubRow
+          label={he.customers.passExpires}
+          value={ent.expiresAt ? formatShortDate(ent.expiresAt, tz, locale) : '—'}
+        />
+      </dl>
+    </Card>
   )
 }
