@@ -4,7 +4,8 @@ import { fmt, he } from '../../../locale/he'
 import { formatMoney, formatShortDate, monthKey } from '../../../lib/format'
 import { useTenant } from '../../../tenant/TenantProvider'
 import { sumLedger, useLedger, usePastReports, useResendReport } from '../../../data/reports'
-import type { LedgerLineKind } from '../../../types/models'
+import { downloadInvoice, invoiceNumberOf } from '../../../lib/invoiceFile'
+import type { LedgerLine, LedgerLineKind } from '../../../types/models'
 
 /**
  * §8.3 — the accountant ledger is RUNNING: every payment/refund/expense wrote
@@ -57,10 +58,8 @@ export function ReportSheet({ open, onClose }: { open: boolean; onClose: () => v
                   <p className="truncate font-semibold">{l.description || kindLabel[l.kind]}</p>
                   <p className="text-xs text-faint">
                     {kindLabel[l.kind]} · {formatShortDate(l.createdAt, tenant.timezone, tenant.locale)}
-                    {l.invoiceId && (
-                      <> · {he.payments.invoice} <bdi className="tnum">{l.invoiceId.replace(/^inv-/, '')}</bdi></>
-                    )}
                   </p>
+                  {l.invoiceId && <InvoiceFileButton line={l} />}
                 </div>
                 <p className={`shrink-0 font-bold tnum ${l.amount < 0 ? 'text-crit' : 'text-ok'}`}>
                   <bdi>{formatMoney(l.amount, tenant.currency, tenant.locale)}</bdi>
@@ -107,6 +106,28 @@ export function ReportSheet({ open, onClose }: { open: boolean; onClose: () => v
         )}
       </section>
     </Sheet>
+  )
+}
+
+/** Per-line invoice as a downloadable file (the invoice created for this line). */
+function InvoiceFileButton({ line }: { line: LedgerLine }) {
+  const tenant = useTenant()
+  return (
+    <button
+      type="button"
+      aria-label={`${he.invoice.download} ${invoiceNumberOf(line)}`}
+      onClick={() => downloadInvoice(line, tenant)}
+      className="mt-1 inline-flex min-h-8 items-center gap-1.5 rounded-field border border-line bg-page/60 px-2 py-1 text-xs font-bold text-accent"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="size-3.5" aria-hidden="true">
+        <path d="M6 3.5h7.5L18.5 8v12A1.5 1.5 0 0 1 17 21.5H6A1.5 1.5 0 0 1 4.5 20V5A1.5 1.5 0 0 1 6 3.5z" />
+        <path d="M13.5 3.5V8h5" />
+      </svg>
+      <span>{he.payments.invoice} <bdi className="tnum">{invoiceNumberOf(line)}</bdi></span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-3.5" aria-hidden="true">
+        <path d="M12 4v10M8 10.5l4 4 4-4M5 20h14" />
+      </svg>
+    </button>
   )
 }
 

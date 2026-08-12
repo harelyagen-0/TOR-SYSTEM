@@ -244,6 +244,19 @@ export const he = {
     methodDetailPlaceholder: 'למשל: העברה בנקאית',
   },
 
+  invoice: {
+    title: 'חשבונית',
+    creditTitle: 'חשבונית זיכוי',
+    numberLabel: 'חשבונית מס׳',
+    date: 'תאריך',
+    from: 'מאת',
+    description: 'תיאור',
+    amount: 'סכום',
+    total: 'סה״כ',
+    download: 'הורדת החשבונית',
+    generatedNote: 'מסמך זה הופק אוטומטית מתוך רישומי הסטודיו. הפקת חשבונית מס רשמית דרך ספק החשבוניות תתווסף בהמשך.',
+  },
+
   upload: {
     prompt: 'בחרו קובץ או גררו לכאן',
     formats: 'JPEG, PNG או PDF — עד 50MB',
