@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Button, Loading } from '../../components/ui'
+import { Button, Loading, Sheet } from '../../components/ui'
+import { DatePickerCalendar } from '../../components/DatePickerCalendar'
 import { fmt, he } from '../../locale/he'
 import { addDaysKey, weekRangeLabel, weekStartKey } from '../../lib/format'
 import { useTenant } from '../../tenant/TenantProvider'
@@ -27,6 +28,9 @@ export function CalendarPage() {
   const [addOpen, setAddOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [instructorsOpen, setInstructorsOpen] = useState(false)
+  const [jumpOpen, setJumpOpen] = useState(false)
+  // the month shown in the jump calendar; seeded to the visible week on open
+  const [jumpMonth, setJumpMonth] = useState(() => keyToDate(weekStartKey(new Date(), tenant.timezone)))
 
   const currentWeek = weekStartKey(new Date(), tenant.timezone)
   const [params, setParams] = useSearchParams()
@@ -67,24 +71,18 @@ export function CalendarPage() {
           dir="prev"
           onClick={() => setWeekStart(addDaysKey(weekStart, 7))}
         />
-        {/* jump many weeks ahead (10+) via a date picker */}
-        <label className="relative grid size-11 shrink-0 cursor-pointer place-items-center rounded-field border border-line bg-surface text-muted">
-          <span className="sr-only">{he.calendar.jumpWeeks}</span>
+        {/* jump to any week via a themed month calendar */}
+        <button
+          type="button"
+          aria-label={he.calendar.jumpWeeks}
+          onClick={() => { setJumpMonth(keyToDate(weekStart)); setJumpOpen(true) }}
+          className="grid size-11 shrink-0 place-items-center rounded-field border border-line bg-surface text-muted"
+        >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" className="size-4.5" aria-hidden="true">
             <rect x="3.5" y="5" width="17" height="15.5" rx="2.5" />
             <path d="M8 3v4M16 3v4M3.5 10h17M12 14l3 3-3 3" />
           </svg>
-          <input
-            type="date"
-            aria-label={he.calendar.jumpWeeks}
-            className="absolute inset-0 size-full cursor-pointer opacity-0"
-            onChange={(e) => {
-              if (e.target.value) {
-                setWeekStart(weekStartKey(new Date(`${e.target.value}T12:00:00`), tenant.timezone))
-              }
-            }}
-          />
-        </label>
+        </button>
         <button
           type="button"
           aria-label={he.calendar.addSession}
@@ -114,12 +112,48 @@ export function CalendarPage() {
         <Button variant="ghost" onClick={() => setInstructorsOpen(true)}>{he.calendar.manageInstructors}</Button>
       </div>
 
+      {/* jump-to-date calendar (replaces the native date input) */}
+      <Sheet open={jumpOpen} onClose={() => setJumpOpen(false)} title={he.calendar.jumpWeeks}>
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              [he.common.today, currentWeek],
+              [he.calendar.nextWeek, addDaysKey(weekStart, 7)],
+              [he.calendar.prevWeek, addDaysKey(weekStart, -7)],
+            ] as const
+          ).map(([label, targetWeek]) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => { setWeekStart(targetWeek); setJumpOpen(false) }}
+              className="min-h-9 rounded-field border border-line bg-surface px-3 text-xs font-bold text-ink"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <DatePickerCalendar
+          selected={keyToDate(weekStart)}
+          month={jumpMonth}
+          onMonthChange={setJumpMonth}
+          onSelect={(d) => {
+            setWeekStart(weekStartKey(d, tenant.timezone))
+            setJumpOpen(false)
+          }}
+        />
+      </Sheet>
+
       <SessionSheet session={openSession} onClose={() => setOpenSession(null)} />
       <AddSessionSheet open={addOpen} slot={slot} onClose={() => setAddOpen(false)} />
       <TemplatesSheet open={templatesOpen} onClose={() => setTemplatesOpen(false)} />
       <InstructorsSheet open={instructorsOpen} onClose={() => setInstructorsOpen(false)} />
     </div>
   )
+}
+
+/** A 'YYYY-MM-DD' week key → a local Date at noon (safe from tz/DST edges). */
+function keyToDate(key: string): Date {
+  return new Date(`${key}T12:00:00`)
 }
 
 function NavArrow({ label, dir, onClick }: { label: string; dir: 'prev' | 'next'; onClick: () => void }) {
