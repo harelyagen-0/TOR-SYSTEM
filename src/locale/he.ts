@@ -41,6 +41,7 @@ export const he = {
     analytics: 'אנליטיקס',
     calendar: 'יומן',
     customers: 'לקוחות',
+    settings: 'הגדרות',
   },
 
   header: {
@@ -391,6 +392,86 @@ export const he = {
   analytics: {
     title: 'אנליטיקס',
     subtitle: 'נתוני הסטודיו',
+  },
+
+  settings: {
+    title: 'הגדרות',
+    subtitle: 'ניהול העסק',
+
+    // section groups
+    groupBusiness: 'העסק',
+    groupAccounting: 'חשבונאות ואזור',
+    groupConnections: 'חיבורים',
+    groupAccount: 'חשבון',
+
+    // hub rows
+    business: 'פרטי העסק',
+    businessSub: 'שם, לוגו ופרטי קשר',
+    branding: 'מיתוג וצבעים',
+    brandingSub: 'ערכת הצבעים של האפליקציה',
+    classTypes: 'סוגי שיעורים',
+    classTypesSub: '{n} סוגים',
+    roomsPolicy: 'חדרים ומדיניות',
+    roomsPolicySub: 'חללים וכללי ביטול',
+    accountant: 'רואה חשבון ואזור',
+    accountantSub: 'דוחות, מטבע ואזור זמן',
+    integrations: 'חיבורים',
+    integrationsSub: 'סליקה, חשבוניות והודעות',
+
+    saved: 'ההגדרות נשמרו',
+
+    // business details
+    businessName: 'שם העסק',
+    logoUrl: 'קישור ללוגו',
+    logoHint: 'כתובת תמונה (URL). מופיעה בכותרת ובקבלות.',
+    contactPhone: 'טלפון',
+    contactEmail: 'אימייל',
+    contactAddress: 'כתובת',
+
+    // branding
+    colorPrimary: 'צבע ראשי',
+    colorAccent: 'צבע הדגשה',
+    colorSurface: 'רקע כרטיסים',
+    colorText: 'צבע טקסט',
+    brandingPreview: 'תצוגה מקדימה',
+    brandingPreviewBtn: 'כפתור',
+    resetDefaults: 'איפוס לברירת מחדל',
+
+    // class types
+    classTypeLabel: 'שם הסוג',
+    classTypeColor: 'צבע',
+    addClassType: 'הוספת סוג שיעור',
+    classTypesEmpty: 'אין עדיין סוגי שיעורים',
+    classTypesHint: 'הצבע מבדיל בין סוגי השיעורים ביומן.',
+
+    // rooms & policy
+    rooms: 'חדרים',
+    addRoom: 'הוספת חדר',
+    roomName: 'שם החדר',
+    roomsEmpty: 'אין עדיין חדרים',
+    policy: 'מדיניות ביטול',
+    cancellationWindow: 'חלון ביטול (שעות)',
+    cancellationWindowHint: 'עד כמה שעות לפני השיעור אפשר לבטל בלי חיוב.',
+    lateCancelCharge: 'חיוב על ביטול באיחור',
+
+    // accountant + locale
+    accountantName: 'שם רואה החשבון',
+    accountantEmail: 'אימייל רואה החשבון',
+    timezone: 'אזור זמן',
+    currency: 'מטבע',
+    localeField: 'שפה ואזור',
+
+    // integrations
+    integrationsNote: 'החיבורים בהקמה — ההגדרות נשמרות, והחיבור בפועל יופעל בהמשך.',
+    grow: 'סליקת אשראי (Grow)',
+    growKey: 'מפתח API',
+    invoicing: 'חשבוניות',
+    invoicingProvider: 'ספק חשבוניות',
+    whatsapp: 'הודעות וואטסאפ',
+    enabled: 'מופעל',
+
+    // account
+    signedInAs: 'מחובר/ת כ־{email}',
   },
 
   weekdays: ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'],

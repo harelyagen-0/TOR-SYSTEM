@@ -21,21 +21,41 @@ export interface ClassType {
   color: string
 }
 
+export interface TenantContact {
+  phone?: string
+  email?: string
+  address?: string
+}
+
+/** Studio-wide booking policy (studio settings). */
+export interface TenantPolicy {
+  /** hours before start that a cancellation is still free */
+  cancellationWindowHours?: number
+  /** whether a late cancellation is still charged */
+  lateCancelCharge?: boolean
+}
+
+export interface TenantIntegrations {
+  grow?: { enabled?: boolean; apiKey?: string } | null
+  invoicing?: { enabled?: boolean; provider?: string } | null
+  whatsapp?: { enabled?: boolean } | null
+}
+
 export interface TenantConfig {
   id: string
   name: string
-  logoUrl?: string
+  logoUrl?: string | null
+  contact?: TenantContact
   timezone: string // e.g. 'Asia/Jerusalem'
   currency: string // e.g. 'ILS'
   locale: string // e.g. 'he-IL'
   theme: TenantTheme
   classTypes: ClassType[]
+  /** named rooms/spaces the studio schedules classes in */
+  rooms?: string[]
+  policy?: TenantPolicy
   accountant?: { name: string; email: string }
-  integrations?: {
-    grow?: Record<string, unknown>
-    invoicing?: Record<string, unknown>
-    whatsapp?: Record<string, unknown>
-  }
+  integrations?: TenantIntegrations
 }
 
 // ── customers ───────────────────────────────────────────────────────────────

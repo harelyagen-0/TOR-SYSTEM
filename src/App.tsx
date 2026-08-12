@@ -9,6 +9,7 @@ import { PaymentsPage } from './pages/payments/PaymentsPage'
 import { AnalyticsPage } from './pages/analytics/AnalyticsPage'
 import { CalendarPage } from './pages/calendar/CalendarPage'
 import { CustomersPage } from './pages/customers/CustomersPage'
+import { SettingsPage } from './pages/settings/SettingsPage'
 
 // The standalone demo build (VITE_DEMO) uses hash routing so it runs correctly
 // when served from any path (static host / preview) without server rewrites.
@@ -23,6 +24,7 @@ const router = createRouter([
       { path: '/analytics', element: <AnalyticsPage /> },
       { path: '/calendar', element: <CalendarPage /> },
       { path: '/customers', element: <CustomersPage /> },
+      { path: '/settings', element: <SettingsPage /> },
     ],
   },
 ])

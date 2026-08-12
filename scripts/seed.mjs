@@ -104,6 +104,9 @@ async function main() {
       { id: 'meditation', labelHe: 'מדיטציה', color: '#10b981' },
     ],
     accountant: { name: 'רו״ח רות אלון', email: 'cpa@example.co.il' },
+    contact: { phone: '03-5551234', email: 'studio@gal.co.il', address: 'הרצל 10, תל אביב' },
+    rooms: ['אולם ראשי', 'חדר מכשירים', 'אולם קטן'],
+    policy: { cancellationWindowHours: 12, lateCancelCharge: true },
     integrations: { grow: null, invoicing: null, whatsapp: null },
   })
 

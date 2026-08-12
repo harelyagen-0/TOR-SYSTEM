@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { fmt, he } from '../locale/he'
 import { formatHeaderDate } from '../lib/format'
 import { useTenant } from '../tenant/TenantProvider'
@@ -8,6 +8,7 @@ const TITLES: Record<string, string> = {
   '/customers': he.nav.customers,
   '/calendar': he.nav.calendar,
   '/analytics': he.nav.analytics,
+  '/settings': he.nav.settings,
 }
 
 /**
@@ -26,7 +27,11 @@ export function Header() {
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div className="mx-auto flex min-h-14 w-full max-w-xl items-center gap-3 px-4 py-2">
-        <div className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-field border border-line bg-page">
+        <Link
+          to="/settings"
+          aria-label={he.nav.settings}
+          className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-field border border-line bg-page"
+        >
           {tenant.logoUrl ? (
             <img src={tenant.logoUrl} alt={tenant.name} className="size-full object-cover" />
           ) : (
@@ -34,7 +39,7 @@ export function Header() {
               {tenant.name.trim().charAt(0)}
             </span>
           )}
-        </div>
+        </Link>
 
         <h1 className="min-w-0 flex-1 truncate text-center text-base font-bold">{title}</h1>
 
