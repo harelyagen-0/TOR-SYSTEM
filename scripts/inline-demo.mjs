@@ -6,7 +6,7 @@
 // duplicates the page skeleton and produces invalid HTML (blank page).
 //
 // Usage: node scripts/inline-demo.mjs <dist-dir> <out-file>
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, readdirSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
 
 const DIST = process.argv[2] ?? 'dist'
@@ -31,5 +31,6 @@ const safeJs = js.replace(/<\/script>/gi, '<\\/script>')
 html = html.replace('</head>', () => `<style>${css}</style></head>`)
 html = html.replace('</body>', () => `<script type="module">${safeJs}</script></body>`)
 
+mkdirSync(path.dirname(OUT), { recursive: true })
 writeFileSync(OUT, html)
 console.log('wrote', OUT, (html.length / 1024).toFixed(0) + 'KB')
