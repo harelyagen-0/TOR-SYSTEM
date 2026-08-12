@@ -187,6 +187,16 @@ export const he = {
     allowedTypesHint: 'המוצר יזכה בכניסה רק לשיעורים מהסוגים המסומנים. בלי סימון — כל סוגי השיעורים.',
     allowedTypesAll: 'כל סוגי השיעורים',
     saved: 'המוצר נשמר',
+
+    // edit existing products
+    listTitle: 'מוצרים קיימים',
+    editTitle: 'עריכת מוצר',
+    editHint: 'לחצו על מוצר כדי לערוך',
+    saveChanges: 'שמירת שינויים',
+    cancelEdit: 'ביטול עריכה',
+    deactivate: 'השבתת מוצר',
+    reactivate: 'הפעלה מחדש',
+    empty: 'אין עדיין מוצרים',
   },
 
   promo: {

@@ -1,15 +1,27 @@
 import { useState, type FormEvent } from 'react'
-import { Button, Field, Input, OptionTile, Sheet } from '../../../components/ui'
+import { Button, Field, Input, OptionTile, Pill, Sheet } from '../../../components/ui'
 import { he } from '../../../locale/he'
-import { useCreateProduct } from '../../../data/products'
+import { formatMoney } from '../../../lib/format'
+import { useCreateProduct, useProducts, useUpdateProduct } from '../../../data/products'
 import { useTenant } from '../../../tenant/TenantProvider'
-import type { ProductKind } from '../../../types/models'
+import type { Product, ProductKind } from '../../../types/models'
 
-/** §8.2.1 — name, description, price, kind (single / punch card of N /
- *  subscription every N days). */
+const KIND_LABEL: Record<ProductKind, string> = {
+  single: he.products.kindSingle,
+  punchCard: he.products.kindPunchCard,
+  subscription: he.products.kindSubscription,
+}
+
+/** §8.2.1 — create a product, and edit / deactivate existing ones. A product is
+ *  name, description, price, kind (single / punch card of N / subscription every
+ *  N days) + the class types it grants entry to. */
 export function ProductSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const create = useCreateProduct()
   const tenant = useTenant()
+  const products = useProducts(false) // include inactive so they can be re-enabled
+  const create = useCreateProduct()
+  const update = useUpdateProduct()
+
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [kind, setKind] = useState<ProductKind>('single')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -18,15 +30,34 @@ export function ProductSheet({ open, onClose }: { open: boolean; onClose: () => 
   const [intervalDays, setIntervalDays] = useState('30')
   const [allowedTypes, setAllowedTypes] = useState<string[]>([])
 
+  const list = products.data ?? []
+  const editingProduct = editingId ? list.find((p) => p.id === editingId) ?? null : null
+  const busy = create.isPending || update.isPending
+
   function toggleType(id: string) {
-    setAllowedTypes((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    )
+    setAllowedTypes((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
+  function resetForm() {
+    setEditingId(null)
+    setKind('single'); setName(''); setDescription(''); setPrice('')
+    setPunchCount('10'); setIntervalDays('30'); setAllowedTypes([])
+  }
+
+  function startEdit(p: Product) {
+    setEditingId(p.id)
+    setKind(p.kind)
+    setName(p.name)
+    setDescription(p.description ?? '')
+    setPrice(String(p.price))
+    setPunchCount(String(p.punchCount ?? 10))
+    setIntervalDays(String(p.intervalDays ?? 30))
+    setAllowedTypes(p.allowedClassTypes ?? [])
   }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
-    await create.mutateAsync({
+    const payload = {
       name,
       description,
       price: Number(price),
@@ -34,14 +65,30 @@ export function ProductSheet({ open, onClose }: { open: boolean; onClose: () => 
       punchCount: Number(punchCount) || 10,
       intervalDays: Number(intervalDays) || 30,
       allowedClassTypes: allowedTypes,
-    })
-    setName(''); setDescription(''); setPrice(''); setAllowedTypes([])
-    onClose()
+    }
+    if (editingId) await update.mutateAsync({ id: editingId, ...payload })
+    else await create.mutateAsync(payload)
+    resetForm()
+  }
+
+  async function toggleActive() {
+    if (!editingProduct) return
+    await update.mutateAsync({ id: editingProduct.id, active: !editingProduct.active })
+    resetForm()
   }
 
   return (
     <Sheet open={open} onClose={onClose} title={he.products.title}>
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        {editingId && (
+          <div className="flex items-center justify-between rounded-field bg-accent/5 px-3 py-2 text-sm font-bold text-accent">
+            <span className="min-w-0 truncate">{he.products.editTitle} · {name}</span>
+            <button type="button" className="shrink-0 text-xs font-bold" onClick={resetForm}>
+              {he.products.cancelEdit}
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-col gap-2" role="radiogroup" aria-label={he.products.kind}>
           <p className="text-sm font-bold">{he.products.kind}</p>
           <OptionTile selected={kind === 'single'} onSelect={() => setKind('single')} title={he.products.kindSingle} subtitle={he.products.kindSingleSub} />
@@ -93,11 +140,59 @@ export function ProductSheet({ open, onClose }: { open: boolean; onClose: () => 
           )}
         </fieldset>
 
-        <div className="flex gap-3 [&>*]:flex-1">
-          <Button variant="ghost" onClick={onClose}>{he.common.cancel}</Button>
-          <Button type="submit" disabled={create.isPending}>{he.common.save}</Button>
+        <div className="flex flex-col gap-2">
+          <Button type="submit" disabled={busy}>
+            {editingId ? he.products.saveChanges : he.common.save}
+          </Button>
+          {editingProduct && (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={busy}
+              className={editingProduct.active ? 'text-crit' : 'text-accent'}
+              onClick={toggleActive}
+            >
+              {editingProduct.active ? he.products.deactivate : he.products.reactivate}
+            </Button>
+          )}
         </div>
       </form>
+
+      <section>
+        <div className="mb-2 flex items-baseline justify-between border-b border-hair pb-1.5">
+          <h3 className="text-sm font-bold text-muted">{he.products.listTitle}</h3>
+          {list.length > 0 && <span className="text-xs text-faint">{he.products.editHint}</span>}
+        </div>
+        {products.isLoading ? (
+          <p className="text-sm text-faint">{he.common.loading}</p>
+        ) : list.length === 0 ? (
+          <p className="text-sm text-faint">{he.products.empty}</p>
+        ) : (
+          <div className="flex flex-col">
+            {list.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => startEdit(p)}
+                className={`flex w-full items-center justify-between gap-3 border-b border-hair px-1 py-2.5 text-start text-sm last:border-0 ${
+                  editingId === p.id ? 'bg-accent/5' : ''
+                } ${p.active ? '' : 'opacity-60'}`}
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-bold">{p.name}</p>
+                  <p className="text-xs text-faint">
+                    {KIND_LABEL[p.kind]}
+                    {p.kind === 'punchCard' && p.punchCount != null && ` · ${p.punchCount}`}
+                    {' · '}
+                    <bdi className="tnum">{formatMoney(p.price, tenant.currency, tenant.locale)}</bdi>
+                  </p>
+                </div>
+                <Pill tone={p.active ? 'ok' : 'muted'}>{p.active ? he.common.active : he.common.inactive}</Pill>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
     </Sheet>
   )
 }
