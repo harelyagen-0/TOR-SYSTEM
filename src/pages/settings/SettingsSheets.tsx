@@ -8,7 +8,8 @@ import { Button, Field, Input, Select, Sheet } from '../../components/ui'
 import { he } from '../../locale/he'
 import { useTenant } from '../../tenant/TenantProvider'
 import { useUpdateTenant } from '../../data/tenant'
-import type { ClassType } from '../../types/models'
+import type { ClassType, TenantSocial } from '../../types/models'
+import { SOCIAL_PLATFORMS, type SocialKey } from './social'
 
 const DEFAULT_THEME = { primary: '#0070f3', accent: '#0070f3', surface: '#ffffff', text: '#0b0f1a' }
 const NEW_CLASS_TYPE_COLOR = '#0ea5e9'
@@ -113,6 +114,51 @@ export function BusinessSheet({ open, onClose }: SheetProps) {
       <Field label={he.settings.contactAddress}>
         <Input value={address} onChange={(e) => setAddress(e.target.value)} />
       </Field>
+    </Sheet>
+  )
+}
+
+// ── social media ─────────────────────────────────────────────────────────────
+export function SocialSheet({ open, onClose }: SheetProps) {
+  const tenant = useTenant()
+  const update = useUpdateTenant()
+  const [links, setLinks] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    if (!open) return
+    const s = tenant.social ?? {}
+    setLinks(Object.fromEntries(SOCIAL_PLATFORMS.map(({ key }) => [key, s[key] ?? ''])))
+  }, [open, tenant])
+
+  async function save() {
+    const social: TenantSocial = {}
+    for (const { key } of SOCIAL_PLATFORMS) {
+      const v = (links[key] ?? '').trim()
+      if (v) social[key] = v
+    }
+    await update.mutateAsync({ social })
+    onClose()
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title={he.settings.social} subtitle={he.settings.socialHint} footer={<SaveFooter onCancel={onClose} onSave={save} saving={update.isPending} />}>
+      {SOCIAL_PLATFORMS.map(({ key, label, placeholder }) => (
+        <Field key={key} label={label}>
+          <div className="flex items-center gap-2">
+            <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-field bg-accent/10 text-accent">
+              <SocialGlyph name={key} className="size-4.5" />
+            </span>
+            <Input
+              value={links[key] ?? ''}
+              onChange={(e) => setLinks((l) => ({ ...l, [key]: e.target.value }))}
+              placeholder={placeholder}
+              dir="ltr"
+              className="min-w-0 flex-1 text-start"
+              inputMode="url"
+            />
+          </div>
+        </Field>
+      ))}
     </Sheet>
   )
 }
@@ -378,6 +424,26 @@ export function IntegrationsSheet({ open, onClose }: SheetProps) {
       <Toggle checked={waEnabled} onChange={setWaEnabled} label={he.settings.enabled} />
     </Sheet>
   )
+}
+
+// ── social brand glyphs ──────────────────────────────────────────────────────
+export function SocialGlyph({ name, className = 'size-4' }: { name: SocialKey; className?: string }) {
+  const p = {
+    viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.75,
+    strokeLinecap: 'round', strokeLinejoin: 'round', className, 'aria-hidden': true,
+  } as const
+  switch (name) {
+    case 'instagram':
+      return <svg {...p}><rect x="3.5" y="3.5" width="17" height="17" rx="5" /><circle cx="12" cy="12" r="4.2" /><circle cx="16.7" cy="7.3" r="1.15" fill="currentColor" stroke="none" /></svg>
+    case 'facebook':
+      return <svg {...p}><path d="M13.5 21v-7h2.35l.4-2.9h-2.75V9.25c0-.84.28-1.42 1.5-1.42h1.45V5.15C15.95 5.07 15.1 5 14.15 5c-2.17 0-3.65 1.32-3.65 3.75v2.35H8v2.9h2.5V21z" fill="currentColor" stroke="none" /></svg>
+    case 'tiktok':
+      return <svg {...p}><path d="M14.2 3h2.5c.25 1.6 1.15 2.98 2.9 3.35v2.5c-1.02 0-2.02-.3-2.9-.86v5.75c0 2.63-2.13 4.76-4.76 4.76S7.2 18.13 7.2 15.5s2.13-4.76 4.76-4.76c.28 0 .55.02.82.07v2.62a2.16 2.16 0 1 0 1.5 2.05V3z" fill="currentColor" stroke="none" /></svg>
+    case 'youtube':
+      return <svg {...p}><rect x="2.5" y="6" width="19" height="12" rx="3.5" /><path d="M10.3 9.4l4.7 2.6-4.7 2.6z" fill="currentColor" stroke="none" /></svg>
+    case 'website':
+      return <svg {...p}><circle cx="12" cy="12" r="8.5" /><path d="M3.6 12h16.8M12 3.5c2.3 2.4 2.3 14.6 0 17M12 3.5c-2.3 2.4-2.3 14.6 0 17" /></svg>
+  }
 }
 
 // ── small shared components ──────────────────────────────────────────────────

@@ -16,9 +16,13 @@ import {
   ClassTypesSheet,
   IntegrationsSheet,
   RoomsPoliciesSheet,
+  SocialGlyph,
+  SocialSheet,
 } from './SettingsSheets'
+import { SOCIAL_PLATFORMS } from './social'
+import type { TenantSocial } from '../../types/models'
 
-type SheetId = 'business' | 'branding' | 'classTypes' | 'rooms' | 'accountant' | 'integrations' | null
+type SheetId = 'business' | 'social' | 'branding' | 'classTypes' | 'rooms' | 'accountant' | 'integrations' | null
 
 export function SettingsPage() {
   const tenant = useTenant()
@@ -34,6 +38,13 @@ export function SettingsPage() {
           value={tenant.name}
           onClick={() => setSheet('business')}
           icon={<StoreIcon />}
+        />
+        <Row
+          label={he.settings.social}
+          sub={he.settings.socialSub}
+          onClick={() => setSheet('social')}
+          icon={<ShareIcon />}
+          trailing={<SocialSummary social={tenant.social} />}
         />
         <Row
           label={he.settings.branding}
@@ -91,6 +102,7 @@ export function SettingsPage() {
       </SettingsGroup>
 
       <BusinessSheet open={sheet === 'business'} onClose={() => setSheet(null)} />
+      <SocialSheet open={sheet === 'social'} onClose={() => setSheet(null)} />
       <BrandingSheet open={sheet === 'branding'} onClose={() => setSheet(null)} />
       <ClassTypesSheet open={sheet === 'classTypes'} onClose={() => setSheet(null)} />
       <RoomsPoliciesSheet open={sheet === 'rooms'} onClose={() => setSheet(null)} />
@@ -148,6 +160,16 @@ function Row({
   )
 }
 
+function SocialSummary({ social }: { social?: TenantSocial }) {
+  const filled = SOCIAL_PLATFORMS.filter((p) => (social?.[p.key] ?? '').trim())
+  if (filled.length === 0) return null
+  return (
+    <span aria-hidden="true" className="flex shrink-0 items-center gap-1.5 text-muted">
+      {filled.map((p) => <SocialGlyph key={p.key} name={p.key} className="size-4" />)}
+    </span>
+  )
+}
+
 function Swatch({ colors }: { colors: string[] }) {
   return (
     <span aria-hidden="true" className="flex shrink-0 -space-x-1">
@@ -181,4 +203,7 @@ function CalcIcon() {
 }
 function PlugIcon() {
   return <svg {...ic}><path d="M9 3v5M15 3v5M6 8h12v2a6 6 0 0 1-12 0zM12 16v5" /></svg>
+}
+function ShareIcon() {
+  return <svg {...ic}><circle cx="6" cy="12" r="2.5" /><circle cx="17.5" cy="6" r="2.5" /><circle cx="17.5" cy="18" r="2.5" /><path d="M8.2 10.8l7.1-3.6M8.2 13.2l7.1 3.6" /></svg>
 }

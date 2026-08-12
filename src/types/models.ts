@@ -27,6 +27,15 @@ export interface TenantContact {
   address?: string
 }
 
+/** Public social-media handles/links for the studio. Each is a handle or URL. */
+export interface TenantSocial {
+  instagram?: string
+  facebook?: string
+  tiktok?: string
+  youtube?: string
+  website?: string
+}
+
 /** Studio-wide booking policy (studio settings). */
 export interface TenantPolicy {
   /** hours before start that a cancellation is still free */
@@ -46,6 +55,7 @@ export interface TenantConfig {
   name: string
   logoUrl?: string | null
   contact?: TenantContact
+  social?: TenantSocial
   timezone: string // e.g. 'Asia/Jerusalem'
   currency: string // e.g. 'ILS'
   locale: string // e.g. 'he-IL'
