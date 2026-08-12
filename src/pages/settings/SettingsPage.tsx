@@ -14,15 +14,20 @@ import {
   BrandingSheet,
   BusinessSheet,
   ClassTypesSheet,
+  GeneralInfoSheet,
   IntegrationsSheet,
   RoomsPoliciesSheet,
   SocialGlyph,
   SocialSheet,
+  StaffSheet,
+  SupportSheet,
 } from './SettingsSheets'
 import { SOCIAL_PLATFORMS } from './social'
 import type { TenantSocial } from '../../types/models'
 
-type SheetId = 'business' | 'social' | 'branding' | 'classTypes' | 'rooms' | 'accountant' | 'integrations' | null
+type SheetId =
+  | 'business' | 'generalInfo' | 'social' | 'branding' | 'classTypes' | 'rooms'
+  | 'staff' | 'accountant' | 'integrations' | 'support' | null
 
 export function SettingsPage() {
   const tenant = useTenant()
@@ -38,6 +43,13 @@ export function SettingsPage() {
           value={tenant.name}
           onClick={() => setSheet('business')}
           icon={<StoreIcon />}
+        />
+        <Row
+          label={he.settings.generalInfo}
+          sub={he.settings.generalInfoSub}
+          value={tenant.generalInfo?.length ? String(tenant.generalInfo.length) : undefined}
+          onClick={() => setSheet('generalInfo')}
+          icon={<InfoIcon />}
         />
         <Row
           label={he.settings.social}
@@ -69,6 +81,16 @@ export function SettingsPage() {
         />
       </SettingsGroup>
 
+      <SettingsGroup title={he.settings.groupStaff}>
+        <Row
+          label={he.settings.staff}
+          sub={he.settings.staffSub}
+          value={tenant.staff?.length ? String(tenant.staff.length) : undefined}
+          onClick={() => setSheet('staff')}
+          icon={<StaffIcon />}
+        />
+      </SettingsGroup>
+
       <SettingsGroup title={he.settings.groupAccounting}>
         <Row
           label={he.settings.accountant}
@@ -88,6 +110,15 @@ export function SettingsPage() {
         />
       </SettingsGroup>
 
+      <SettingsGroup title={he.settings.groupSupport}>
+        <Row
+          label={he.settings.support}
+          sub={he.settings.supportSub}
+          onClick={() => setSheet('support')}
+          icon={<SupportIcon />}
+        />
+      </SettingsGroup>
+
       <SettingsGroup title={he.settings.groupAccount}>
         <div className="flex flex-col gap-3 p-4">
           {user?.email && (
@@ -102,12 +133,15 @@ export function SettingsPage() {
       </SettingsGroup>
 
       <BusinessSheet open={sheet === 'business'} onClose={() => setSheet(null)} />
+      <GeneralInfoSheet open={sheet === 'generalInfo'} onClose={() => setSheet(null)} />
       <SocialSheet open={sheet === 'social'} onClose={() => setSheet(null)} />
       <BrandingSheet open={sheet === 'branding'} onClose={() => setSheet(null)} />
       <ClassTypesSheet open={sheet === 'classTypes'} onClose={() => setSheet(null)} />
       <RoomsPoliciesSheet open={sheet === 'rooms'} onClose={() => setSheet(null)} />
+      <StaffSheet open={sheet === 'staff'} onClose={() => setSheet(null)} />
       <AccountantSheet open={sheet === 'accountant'} onClose={() => setSheet(null)} />
       <IntegrationsSheet open={sheet === 'integrations'} onClose={() => setSheet(null)} />
+      <SupportSheet open={sheet === 'support'} onClose={() => setSheet(null)} />
     </div>
   )
 }
@@ -206,4 +240,13 @@ function PlugIcon() {
 }
 function ShareIcon() {
   return <svg {...ic}><circle cx="6" cy="12" r="2.5" /><circle cx="17.5" cy="6" r="2.5" /><circle cx="17.5" cy="18" r="2.5" /><path d="M8.2 10.8l7.1-3.6M8.2 13.2l7.1 3.6" /></svg>
+}
+function InfoIcon() {
+  return <svg {...ic}><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5M12 7.6h.01" /></svg>
+}
+function StaffIcon() {
+  return <svg {...ic}><circle cx="9" cy="8.5" r="3.2" /><path d="M3.4 20c0-3.2 2.6-5.3 5.6-5.3s5.6 2.1 5.6 5.3" /><path d="M16 5.5a3.2 3.2 0 0 1 0 6.2M17.4 14.9c1.8.6 3.2 2.3 3.2 5.1" /></svg>
+}
+function SupportIcon() {
+  return <svg {...ic}><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="3.3" /><path d="M6.1 6.1l3.5 3.5M14.4 14.4l3.5 3.5M17.9 6.1l-3.5 3.5M9.6 14.4l-3.5 3.5" /></svg>
 }

@@ -44,6 +44,27 @@ export interface TenantPolicy {
   lateCancelCharge?: boolean
 }
 
+/** A custom "general information" field on the business — a labelled datum the
+ *  studio adds itself (the label is the future "column"). */
+export interface GeneralInfoField {
+  id: string
+  label: string
+  value: string
+}
+
+export type StaffRole = 'owner' | 'manager' | 'instructor' | 'frontdesk'
+/** App areas a staff member may be granted access to. */
+export type StaffPermission = 'payments' | 'calendar' | 'customers' | 'reports' | 'settings'
+
+export interface StaffMember {
+  id: string
+  name: string
+  email: string
+  role: StaffRole
+  permissions: StaffPermission[]
+  active: boolean
+}
+
 export interface TenantIntegrations {
   grow?: { enabled?: boolean; apiKey?: string } | null
   invoicing?: { enabled?: boolean; provider?: string } | null
@@ -64,6 +85,10 @@ export interface TenantConfig {
   /** named rooms/spaces the studio schedules classes in */
   rooms?: string[]
   policy?: TenantPolicy
+  /** custom business info fields the studio manages itself */
+  generalInfo?: GeneralInfoField[]
+  /** staff roster + their access permissions */
+  staff?: StaffMember[]
   accountant?: { name: string; email: string }
   integrations?: TenantIntegrations
 }

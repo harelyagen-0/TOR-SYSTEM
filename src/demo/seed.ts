@@ -74,6 +74,14 @@ export function seedDemo(): void {
     social: { instagram: '@studio.gal', facebook: 'studio.gal', tiktok: '@studio.gal', website: 'https://studio-gal.co.il' },
     rooms: ['אולם ראשי', 'חדר מכשירים', 'אולם קטן'],
     policy: { cancellationWindowHours: 12, lateCancelCharge: true },
+    generalInfo: [
+      { id: 'gi-1', label: 'ח.פ / עוסק מורשה', value: '514123456' },
+      { id: 'gi-2', label: 'שנת הקמה', value: '2021' },
+    ],
+    staff: [
+      { id: 'stf-1', name: 'גל ברק', email: 'gal@studio-gal.co.il', role: 'owner', permissions: ['payments', 'calendar', 'customers', 'reports', 'settings'], active: true },
+      { id: 'stf-2', name: 'נועה שגב', email: 'noa@studio-gal.co.il', role: 'instructor', permissions: ['calendar', 'customers'], active: true },
+    ],
     integrations: { grow: null, invoicing: null, whatsapp: null },
   })
 

@@ -400,13 +400,21 @@ export const he = {
 
     // section groups
     groupBusiness: 'העסק',
+    groupStaff: 'צוות',
     groupAccounting: 'חשבונאות ואזור',
     groupConnections: 'חיבורים',
+    groupSupport: 'תמיכה',
     groupAccount: 'חשבון',
 
     // hub rows
     business: 'פרטי העסק',
     businessSub: 'שם, לוגו ופרטי קשר',
+    generalInfo: 'מידע כללי',
+    generalInfoSub: 'שדות מידע נוספים על העסק',
+    staff: 'צוות והרשאות',
+    staffSub: 'משתמשים והרשאות גישה',
+    support: 'תמיכה בלקוחות',
+    supportSub: 'ערוץ תמיכה ללקוחות',
     social: 'רשתות חברתיות',
     socialSub: 'קישורים לפרופילים של הסטודיו',
     socialHint: 'שם משתמש או קישור מלא. שדות ריקים לא יוצגו.',
@@ -477,6 +485,35 @@ export const he = {
     invoicingProvider: 'ספק חשבוניות',
     whatsapp: 'הודעות וואטסאפ',
     enabled: 'מופעל',
+
+    // general information (custom fields)
+    generalInfoHint: 'הוספת שדות מידע משלכם. אפשר לערוך ולמחוק. בהמשך נוסיף כאן עמודות.',
+    gInfoLabel: 'שם השדה',
+    gInfoValue: 'תוכן',
+    addField: 'הוספת שדה',
+    generalInfoEmpty: 'אין עדיין שדות מידע',
+
+    // staff & permissions
+    staffHint: 'הוספת אנשי צוות והגדרת הרשאות. יצירת גישת התחברות בפועל תיתמך בהמשך.',
+    staffName: 'שם',
+    staffEmail: 'אימייל',
+    staffRole: 'תפקיד',
+    roleOwner: 'בעלים',
+    roleManager: 'מנהל/ת',
+    roleInstructor: 'מדריך/ה',
+    roleFrontdesk: 'קבלה',
+    permissions: 'הרשאות',
+    permPayments: 'תשלומים',
+    permCalendar: 'יומן',
+    permCustomers: 'לקוחות',
+    permReports: 'דוחות',
+    permSettings: 'הגדרות',
+    addStaff: 'הוספת משתמש',
+    staffEmpty: 'אין עדיין אנשי צוות',
+
+    // customer support (placeholder)
+    supportComingSoon: 'אזור התמיכה בהקמה — בקרוב נוסיף כאן ערוצי תמיכה ללקוחות.',
+    supportContactLabel: 'ליצירת קשר בינתיים',
 
     // account
     signedInAs: 'מחובר/ת כ־{email}',

@@ -8,8 +8,16 @@ import { Button, Field, Input, Select, Sheet } from '../../components/ui'
 import { he } from '../../locale/he'
 import { useTenant } from '../../tenant/TenantProvider'
 import { useUpdateTenant } from '../../data/tenant'
-import type { ClassType, TenantSocial } from '../../types/models'
+import type {
+  ClassType,
+  GeneralInfoField,
+  StaffMember,
+  StaffPermission,
+  StaffRole,
+  TenantSocial,
+} from '../../types/models'
 import { SOCIAL_PLATFORMS, type SocialKey } from './social'
+import { STAFF_PERMISSIONS, STAFF_ROLES } from './staff'
 
 const DEFAULT_THEME = { primary: '#0070f3', accent: '#0070f3', surface: '#ffffff', text: '#0b0f1a' }
 const NEW_CLASS_TYPE_COLOR = '#0ea5e9'
@@ -311,6 +319,141 @@ export function RoomsPoliciesSheet({ open, onClose }: SheetProps) {
         <Input value={windowHours} onChange={(e) => setWindowHours(e.target.value.replace(/\D/g, ''))} inputMode="numeric" dir="ltr" className="text-start" />
       </Field>
       <Toggle checked={lateCharge} onChange={setLateCharge} label={he.settings.lateCancelCharge} />
+    </Sheet>
+  )
+}
+
+// ── general information (custom fields) ──────────────────────────────────────
+export function GeneralInfoSheet({ open, onClose }: SheetProps) {
+  const tenant = useTenant()
+  const update = useUpdateTenant()
+  const [fields, setFields] = useState<GeneralInfoField[]>([])
+
+  useEffect(() => {
+    if (!open) return
+    setFields((tenant.generalInfo ?? []).map((f) => ({ ...f })))
+  }, [open, tenant])
+
+  function patch(i: number, next: Partial<GeneralInfoField>) {
+    setFields((list) => list.map((f, idx) => (idx === i ? { ...f, ...next } : f)))
+  }
+  function add() {
+    setFields((list) => [...list, { id: `gi_${Math.random().toString(36).slice(2, 8)}`, label: '', value: '' }])
+  }
+  async function save() {
+    const cleaned = fields
+      .map((f) => ({ ...f, label: f.label.trim(), value: f.value.trim() }))
+      .filter((f) => f.label)
+    await update.mutateAsync({ generalInfo: cleaned })
+    onClose()
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title={he.settings.generalInfo} subtitle={he.settings.generalInfoHint} footer={<SaveFooter onCancel={onClose} onSave={save} saving={update.isPending} />}>
+      {fields.length === 0 && <EmptyRow text={he.settings.generalInfoEmpty} />}
+      {fields.map((f, i) => (
+        <div key={f.id} className="flex flex-col gap-2 rounded-field border border-line p-3">
+          <div className="flex items-center gap-2">
+            <Input value={f.label} onChange={(e) => patch(i, { label: e.target.value })} placeholder={he.settings.gInfoLabel} className="min-w-0 flex-1 font-bold" />
+            <IconButton onClick={() => setFields((list) => list.filter((_, idx) => idx !== i))} label={he.common.delete} tone="crit" />
+          </div>
+          <Input value={f.value} onChange={(e) => patch(i, { value: e.target.value })} placeholder={he.settings.gInfoValue} />
+        </div>
+      ))}
+      <AddButton onClick={add} label={he.settings.addField} />
+    </Sheet>
+  )
+}
+
+// ── staff & permissions ──────────────────────────────────────────────────────
+export function StaffSheet({ open, onClose }: SheetProps) {
+  const tenant = useTenant()
+  const update = useUpdateTenant()
+  const [members, setMembers] = useState<StaffMember[]>([])
+
+  useEffect(() => {
+    if (!open) return
+    setMembers((tenant.staff ?? []).map((m) => ({ ...m, permissions: [...m.permissions] })))
+  }, [open, tenant])
+
+  function patch(i: number, next: Partial<StaffMember>) {
+    setMembers((list) => list.map((m, idx) => (idx === i ? { ...m, ...next } : m)))
+  }
+  function togglePerm(i: number, perm: StaffPermission) {
+    setMembers((list) =>
+      list.map((m, idx) => {
+        if (idx !== i) return m
+        const has = m.permissions.includes(perm)
+        return { ...m, permissions: has ? m.permissions.filter((p) => p !== perm) : [...m.permissions, perm] }
+      }),
+    )
+  }
+  function add() {
+    setMembers((list) => [...list, { id: `stf_${Math.random().toString(36).slice(2, 8)}`, name: '', email: '', role: 'instructor', permissions: [], active: true }])
+  }
+  async function save() {
+    const cleaned = members
+      .map((m) => ({ ...m, name: m.name.trim(), email: m.email.trim() }))
+      .filter((m) => m.name || m.email)
+    await update.mutateAsync({ staff: cleaned })
+    onClose()
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title={he.settings.staff} subtitle={he.settings.staffHint} footer={<SaveFooter onCancel={onClose} onSave={save} saving={update.isPending} />}>
+      {members.length === 0 && <EmptyRow text={he.settings.staffEmpty} />}
+      {members.map((m, i) => (
+        <div key={m.id} className="flex flex-col gap-3 rounded-field border border-line p-3">
+          <div className="flex items-center gap-2">
+            <Input value={m.name} onChange={(e) => patch(i, { name: e.target.value })} placeholder={he.settings.staffName} className="min-w-0 flex-1 font-bold" />
+            <IconButton onClick={() => setMembers((list) => list.filter((_, idx) => idx !== i))} label={he.common.delete} tone="crit" />
+          </div>
+          <Input value={m.email} onChange={(e) => patch(i, { email: e.target.value })} placeholder={he.settings.staffEmail} dir="ltr" className="text-start" type="email" inputMode="email" />
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-muted">{he.settings.staffRole}</span>
+            <Select value={m.role} onChange={(e) => patch(i, { role: e.target.value as StaffRole })}>
+              {STAFF_ROLES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+            </Select>
+          </label>
+          <div>
+            <span className="mb-1.5 block text-xs font-semibold text-muted">{he.settings.permissions}</span>
+            <div className="flex flex-wrap gap-2">
+              {STAFF_PERMISSIONS.map((p) => {
+                const on = m.permissions.includes(p.key)
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={on}
+                    onClick={() => togglePerm(i, p.key)}
+                    className={`min-h-9 rounded-field border px-3 text-xs font-bold ${on ? 'border-accent bg-accent/10 text-accent' : 'border-line bg-surface text-muted'}`}
+                  >
+                    {p.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      ))}
+      <AddButton onClick={add} label={he.settings.addStaff} />
+    </Sheet>
+  )
+}
+
+// ── customer support (placeholder) ───────────────────────────────────────────
+export function SupportSheet({ open, onClose }: SheetProps) {
+  const tenant = useTenant()
+  return (
+    <Sheet open={open} onClose={onClose} title={he.settings.support} footer={<Button onClick={onClose}>{he.common.close}</Button>}>
+      <EmptyRow text={he.settings.supportComingSoon} />
+      {tenant.contact?.email && (
+        <div className="rounded-field border border-line px-4 py-3">
+          <span className="block text-xs font-semibold text-faint">{he.settings.supportContactLabel}</span>
+          <bdi dir="ltr" className="block text-sm font-bold">{tenant.contact.email}</bdi>
+        </div>
+      )}
     </Sheet>
   )
 }
