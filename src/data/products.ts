@@ -26,6 +26,8 @@ export interface NewProductInput {
   kind: ProductKind
   punchCount?: number
   intervalDays?: number
+  /** null = product covers every class type (default); a list restricts it */
+  allowedClassTypeIds?: string[] | null
 }
 
 export function useCreateProduct() {
@@ -42,6 +44,7 @@ export function useCreateProduct() {
         // subscriptions carry a billing interval (default 30 days)
         ...(input.kind === 'punchCard' ? { punchCount: input.punchCount ?? 10 } : {}),
         ...(input.kind === 'subscription' ? { intervalDays: input.intervalDays ?? 30 } : {}),
+        allowedClassTypeIds: input.allowedClassTypeIds ?? null,
         active: true,
         createdAt: serverTimestamp(),
       })

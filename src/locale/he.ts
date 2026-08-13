@@ -182,6 +182,11 @@ export const he = {
     kindSubscriptionSub: 'חיוב חוזר',
     punchCount: 'מספר כניסות',
     intervalDays: 'תדירות חיוב (ימים)',
+    allowedClassTypes: 'סוגי שיעורים מזכים',
+    allowedClassTypesAll: 'כל סוגי השיעורים',
+    allowedClassTypesSome: '{n} מתוך {total} נבחרו',
+    allowedClassTypesNone: 'לא הוגדרו סוגי שיעורים',
+    allowedClassTypesHint: 'סוג שיעור שלא נבחר — לא ניתן להיכנס אליו עם המוצר',
     saved: 'המוצר נשמר',
   },
 
