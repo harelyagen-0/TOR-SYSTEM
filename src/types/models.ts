@@ -70,6 +70,13 @@ export interface Product {
   punchCount?: number
   /** subscription only; default 30 */
   intervalDays?: number
+  /**
+   * Which class TYPES this product grants entry to — the product-side mirror of
+   * a class/template's `allowedProductIds`. `null` / absent = every class type
+   * is covered (the default). A list restricts the product to those class types
+   * only, so a class of any other type is paid as a single entry.
+   */
+  allowedClassTypeIds?: string[] | null
   active: boolean
   createdAt: Timestamp
 }

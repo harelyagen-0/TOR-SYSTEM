@@ -24,3 +24,8 @@ dist-ssr
 *.sw?
 
 .impeccable/
+
+# self-contained preview build output
+dist-preview/
+preview-artifact.html
+preview-standalone.html
