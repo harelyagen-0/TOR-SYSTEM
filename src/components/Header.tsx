@@ -14,7 +14,7 @@ const TITLES: Record<string, string> = {
  * Identical on all five pages (spec §6):
  * right (leading) — studio logo · centre — page title · left — today's date.
  */
-export function Header() {
+export function Header({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const tenant = useTenant()
   const { pathname } = useLocation()
   const title = TITLES[pathname] ?? fmt(he.header.hello, { name: tenant.name })
@@ -26,7 +26,12 @@ export function Header() {
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div className="mx-auto flex min-h-14 w-full max-w-xl items-center gap-3 px-4 py-2">
-        <div className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-field border border-line bg-page">
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          aria-label={he.settings.open}
+          className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-field border border-line bg-page transition-transform active:scale-95"
+        >
           {tenant.logoUrl ? (
             <img src={tenant.logoUrl} alt={tenant.name} className="size-full object-cover" />
           ) : (
@@ -34,7 +39,7 @@ export function Header() {
               {tenant.name.trim().charAt(0)}
             </span>
           )}
-        </div>
+        </button>
 
         <h1 className="min-w-0 flex-1 truncate text-center text-base font-bold">{title}</h1>
 
