@@ -239,6 +239,13 @@ export interface Session {
   price: number
   registeredCount: number
   status: 'scheduled' | 'cancelled'
+  /**
+   * Which pass / subscription products grant entry to this class.
+   * `null` / absent = every pass and subscription is accepted (the default).
+   * A list restricts entry to those products only. Mirrors ClassTemplate;
+   * lets a class created from scratch carry its own entry rules.
+   */
+  allowedProductIds?: string[] | null
 }
 
 export type RegistrationStatus = 'booked' | 'attended' | 'noShow' | 'cancelled'
