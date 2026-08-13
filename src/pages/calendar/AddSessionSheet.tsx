@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Field, Input, Loading, OptionTile, Select, Sheet } from '../../components/ui'
 import { fmt, he } from '../../locale/he'
-import { dateKey } from '../../lib/format'
+import { dateKey, formatMoney } from '../../lib/format'
 import { useTenant } from '../../tenant/TenantProvider'
 import {
   useCreateRecurrence,
@@ -10,6 +10,7 @@ import {
   useSaveTemplate,
   useTemplates,
 } from '../../data/calendar'
+import { useProducts } from '../../data/products'
 import type { ClassTemplate } from '../../types/models'
 import type { SlotTap } from './WeekGrid'
 
@@ -33,15 +34,34 @@ export function AddSessionSheet({
   const tenant = useTenant()
   const templates = useTemplates()
   const instructors = useInstructors()
+  const products = useProducts()
   const createSession = useCreateSession()
   const createRecurrence = useCreateRecurrence()
   const saveTemplate = useSaveTemplate()
+
+  // only passes + subscriptions can "grant entry"; single entries are always paid
+  const passProducts = useMemo(
+    () => (products.data ?? []).filter((p) => p.kind === 'punchCard' || p.kind === 'subscription'),
+    [products.data],
+  )
 
   const [mode, setMode] = useState<Mode>('pick')
   const [template, setTemplate] = useState<ClassTemplate | null>(null)
   const [recurring, setRecurring] = useState(false)
   const [endsOn, setEndsOn] = useState('')
   const [saveAsTemplate, setSaveAsTemplate] = useState(false)
+  // null = every pass/subscription grants entry (default); a list restricts it
+  const [allowedIds, setAllowedIds] = useState<string[] | null>(null)
+  const [productsOpen, setProductsOpen] = useState(false)
+
+  const isAllowed = (id: string) => allowedIds === null || allowedIds.includes(id)
+  function toggleAllowed(id: string) {
+    const all = passProducts.map((p) => p.id)
+    let next = allowedIds === null ? [...all] : [...allowedIds]
+    next = next.includes(id) ? next.filter((x) => x !== id) : [...next, id]
+    // collapse back to "all" (null) when nothing is excluded — future-proof
+    setAllowedIds(next.length === all.length && all.every((x) => next.includes(x)) ? null : next)
+  }
   const [form, setForm] = useState({
     title: '',
     classTypeId: tenant.classTypes[0]?.id ?? '',
@@ -62,6 +82,8 @@ export function AddSessionSheet({
       setRecurring(false)
       setEndsOn('')
       setSaveAsTemplate(false)
+      setAllowedIds(null)
+      setProductsOpen(false)
       setForm((f) => ({
         ...f,
         title: '',
@@ -82,6 +104,8 @@ export function AddSessionSheet({
 
   function loadTemplate(t: ClassTemplate) {
     setTemplate(t)
+    // an edited occurrence starts from the template's own entry rules
+    setAllowedIds(t.allowedProductIds ?? null)
     setForm((f) => ({
       ...f,
       title: t.title,
@@ -122,6 +146,7 @@ export function AddSessionSheet({
           durationMinutes: Number(form.durationMinutes),
           price: Number(form.price),
           defaultStartTime: form.time,
+          allowedProductIds: allowedIds,
         })
       }
       await createSession.mutateAsync({
@@ -134,6 +159,7 @@ export function AddSessionSheet({
         capacity: Number(form.capacity),
         price: Number(form.price),
         templateId,
+        allowedProductIds: allowedIds,
       })
     }
     onClose()
@@ -257,6 +283,53 @@ export function AddSessionSheet({
               <Input required type="number" min="0" dir="ltr" className="text-end tnum" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
             </Field>
           </div>
+          {/* which passes / subscriptions grant entry to this class — default: all */}
+          <div>
+            <button
+              type="button"
+              aria-expanded={productsOpen}
+              onClick={() => setProductsOpen((v) => !v)}
+              className="flex min-h-12 w-full items-center justify-between gap-3 rounded-field border border-line bg-surface px-3.5 text-start"
+            >
+              <span className="flex min-w-0 flex-col">
+                <span className="text-sm font-bold">{he.calendar.allowedProducts}</span>
+                <span className="truncate text-xs text-faint">
+                  {passProducts.length === 0
+                    ? he.calendar.allowedProductsNone
+                    : allowedIds === null
+                      ? he.calendar.allowedProductsAll
+                      : fmt(he.calendar.allowedProductsSome, { n: allowedIds.length, total: passProducts.length })}
+                </span>
+              </span>
+              <span
+                aria-hidden="true"
+                className={`shrink-0 text-faint transition-transform ${productsOpen ? 'rotate-180' : ''}`}
+              >
+                ▾
+              </span>
+            </button>
+
+            {productsOpen && passProducts.length > 0 && (
+              <div className="mt-2 flex flex-col gap-1 rounded-field border border-line bg-page/60 p-2">
+                {passProducts.map((p) => (
+                  <label key={p.id} className="flex min-h-10 items-center gap-3 rounded-md px-1.5 text-sm">
+                    <input
+                      type="checkbox"
+                      className="size-5 accent-[var(--t-accent)]"
+                      checked={isAllowed(p.id)}
+                      onChange={() => toggleAllowed(p.id)}
+                    />
+                    <span className="min-w-0 flex-1 truncate font-semibold">{p.name}</span>
+                    <span className="shrink-0 text-xs text-faint tnum">
+                      <bdi>{formatMoney(p.price, tenant.currency, tenant.locale)}</bdi>
+                    </span>
+                  </label>
+                ))}
+                <p className="px-1.5 pt-1 text-xs text-faint">{he.calendar.allowedProductsHint}</p>
+              </div>
+            )}
+          </div>
+
           {mode === 'new' && (
             <label className="flex min-h-11 items-center gap-3 text-sm font-semibold">
               <input

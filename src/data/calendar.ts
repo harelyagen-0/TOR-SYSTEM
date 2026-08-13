@@ -143,6 +143,8 @@ export interface SessionInput {
   templateId?: string
   recurrenceId?: string
   occurrenceDate?: string
+  /** null = all passes/subscriptions accepted (default); a list restricts entry */
+  allowedProductIds?: string[] | null
 }
 
 export function useCreateSession() {
@@ -166,6 +168,7 @@ export function useCreateSession() {
         price: input.price,
         registeredCount: 0,
         status: 'scheduled',
+        allowedProductIds: input.allowedProductIds ?? null,
       })
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions', tenantId] }),
@@ -388,6 +391,7 @@ export function useCreateRecurrence() {
           price: template.price,
           registeredCount: 0,
           status: 'scheduled',
+          allowedProductIds: template.allowedProductIds ?? null,
         })
       }
     },
