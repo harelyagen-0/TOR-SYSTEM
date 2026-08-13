@@ -1,4 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import NumberFlow from '@number-flow/react'
+import { CreditCard, Minus, Plus, ShoppingCart } from 'lucide-react'
 import { Button, Card, Field, Input, Loading, OptionTile, SearchInput } from '../../components/ui'
 import { fmt, he } from '../../locale/he'
 import { formatMoney } from '../../lib/format'
@@ -305,10 +308,14 @@ export function CollectCard() {
               (products.data ?? []).map((p) => {
                 const qty = cart[p.id] ?? 0
                 return (
-                  <div
+                  <motion.div
                     key={p.id}
-                    className={`flex items-center justify-between gap-3 rounded-field border p-3 ${
-                      qty > 0 ? 'border-accent bg-accent/5' : 'border-line'
+                    layout
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className={`flex items-center justify-between gap-3 rounded-field border p-3 transition-colors ${
+                      qty > 0 ? 'border-accent bg-accent/5' : 'border-line bg-surface'
                     }`}
                   >
                     <div className="min-w-0">
@@ -318,34 +325,84 @@ export function CollectCard() {
                         <bdi>{formatMoney(p.price, tenant.currency, tenant.locale)}</bdi>
                       </p>
                     </div>
-                    {qty === 0 ? (
-                      <Button variant="ghost" className="shrink-0 px-3" onClick={() => setQty(p.id, 1)}>
-                        {he.payments.addToCart}
-                      </Button>
-                    ) : (
-                      <div className="flex shrink-0 items-center gap-2">
-                        <StepBtn label={he.payments.qtyDecrease} onClick={() => setQty(p.id, qty - 1)}>−</StepBtn>
-                        <span className="w-5 text-center text-sm font-bold tabular-nums">{qty}</span>
-                        <StepBtn label={he.payments.qtyIncrease} onClick={() => setQty(p.id, qty + 1)}>+</StepBtn>
-                      </div>
-                    )}
-                  </div>
+                    <AnimatePresence mode="popLayout" initial={false}>
+                      {qty === 0 ? (
+                        <motion.div
+                          key="add"
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ duration: 0.15 }}
+                        >
+                          <Button variant="ghost" className="shrink-0 px-3" onClick={() => setQty(p.id, 1)}>
+                            <Plus className="size-3.5" aria-hidden="true" />
+                            {he.payments.addToCart}
+                          </Button>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="stepper"
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ duration: 0.15 }}
+                          className="flex shrink-0 items-center gap-2"
+                        >
+                          <StepBtn label={he.payments.qtyDecrease} onClick={() => setQty(p.id, qty - 1)}>
+                            <Minus className="size-3.5" aria-hidden="true" />
+                          </StepBtn>
+                          <span className="w-6 text-center text-sm font-bold tnum">
+                            <NumberFlow value={qty} />
+                          </span>
+                          <StepBtn label={he.payments.qtyIncrease} onClick={() => setQty(p.id, qty + 1)}>
+                            <Plus className="size-3.5" aria-hidden="true" />
+                          </StepBtn>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
                 )
               })
             )}
-            {cartLines.length === 0 ? (
-              <p className="text-xs text-faint">{he.payments.productRequired}</p>
-            ) : (
-              <div className="mt-1 flex items-baseline justify-between border-t border-hair pt-2">
-                <span className="text-sm font-bold">
-                  {he.payments.cartTotal}
-                  <span className="ms-2 text-xs font-normal text-faint">
-                    {cartCount === 1 ? he.payments.cartCountOne : fmt(he.payments.cartCount, { n: cartCount })}
+            <AnimatePresence initial={false} mode="wait">
+              {cartLines.length === 0 ? (
+                <motion.p
+                  key="empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="text-xs text-faint"
+                >
+                  {he.payments.productRequired}
+                </motion.p>
+              ) : (
+                <motion.div
+                  key="total"
+                  layout
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  className="mt-1 flex items-baseline justify-between border-t border-hair pt-2"
+                >
+                  <span className="flex items-center gap-1.5 text-sm font-bold">
+                    <ShoppingCart className="size-4 text-muted" aria-hidden="true" />
+                    {he.payments.cartTotal}
+                    <span className="ms-1 text-xs font-normal text-faint">
+                      {cartCount === 1 ? he.payments.cartCountOne : fmt(he.payments.cartCount, { n: cartCount })}
+                    </span>
                   </span>
-                </span>
-                <span className="text-base font-bold tnum"><bdi>{formatMoney(cartTotal, tenant.currency, tenant.locale)}</bdi></span>
-              </div>
-            )}
+                  <span className="text-base font-bold tnum">
+                    <bdi>
+                      <NumberFlow
+                        value={cartTotal}
+                        format={{ style: 'currency', currency: tenant.currency, maximumFractionDigits: 0 }}
+                        locales={tenant.locale}
+                      />
+                    </bdi>
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           <div className="border-t border-hair pt-3">
@@ -377,7 +434,10 @@ export function CollectCard() {
 
           <div className="flex gap-3 [&>*]:flex-1">
             <Button variant="ghost" onClick={() => setStep(1)}>{he.common.back}</Button>
-            <Button disabled={cartLines.length === 0} onClick={() => setStep(3)}>{he.common.next}</Button>
+            <Button disabled={cartLines.length === 0} onClick={() => setStep(3)}>
+              <CreditCard className="size-4" aria-hidden="true" />
+              {he.common.next}
+            </Button>
           </div>
         </div>
       )}
@@ -479,16 +539,18 @@ export function CollectCard() {
   )
 }
 
-function StepBtn({ label, onClick, children }: { label: string; onClick: () => void; children: string }) {
+function StepBtn({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
   return (
-    <button
+    <motion.button
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="grid size-8 place-items-center rounded-full border border-line bg-surface text-base font-bold leading-none text-ink"
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.9 }}
+      className="grid size-8 place-items-center rounded-full border border-line bg-surface leading-none text-ink"
     >
       {children}
-    </button>
+    </motion.button>
   )
 }
 
